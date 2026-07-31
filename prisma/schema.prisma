@@ -44,6 +44,7 @@ model User {
   createdGroups  StudyGroup[]   @relation("GroupCreator")
   posts          GroupPost[]
   uploadedMaterials StudyMaterial[] @relation("MaterialUploader")
+  chapterViews   ChapterView[]
 
   @@index([boardId, classId, academicYear, schoolName])
 }
@@ -122,8 +123,24 @@ model Chapter {
 
   subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   materials StudyMaterial[]
+  views     ChapterView[]
 
   @@index([subjectId])
+}
+
+// Records that a student has opened a chapter — used to show how many students
+// are actively using a subject / chapter. Unique per (student, chapter).
+model ChapterView {
+  id        String   @id @default(cuid())
+  userId    String
+  chapterId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+  @@index([chapterId])
 }
 
 enum MaterialType {

@@ -1,119 +1,91 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/client/api';
-import { IconBook, IconFile, IconDownload, IconChevron } from '@/components/icons';
+import { MeUser } from '@/lib/client/useAuth';
+import { IconBook, IconUsers, IconChevron } from '@/components/icons';
 
-interface Subject { id: string; name: string; code: string; _count: { chapters: number } }
-interface Chapter { id: string; name: string; orderIndex: number; _count: { materials: number } }
-interface Material {
-  id: string; title: string; description: string | null; type: string;
-  fileName: string; fileSize: number; contentType: string;
-}
+interface Subject { id: string; name: string; code: string; chapterCount: number; studentCount: number }
 
-function fmtSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
+// Colour accents cycled across subject cards for a lively, professional grid.
+const accents = [
+  'from-indigo-500 to-violet-500',
+  'from-sky-500 to-cyan-500',
+  'from-emerald-500 to-teal-500',
+  'from-amber-500 to-orange-500',
+  'from-rose-500 to-pink-500',
+  'from-fuchsia-500 to-purple-500',
+];
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function StatCard({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon: React.ReactNode }) {
   return (
-    <div className="card flex flex-col">
-      <div className="section-title mb-3"><span className="text-brand-500"><IconBook /></span>{title}</div>
-      {children}
+    <div className="card flex items-center gap-4">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">{icon}</span>
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{label}</p>
+        <p className="text-lg font-bold text-slate-900">{value}</p>
+        {sub && <p className="text-xs text-slate-500">{sub}</p>}
+      </div>
     </div>
   );
 }
 
-function Row({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: string }) {
-  return (
-    <button className={`row ${active ? 'row-active' : ''}`} onClick={onClick}>
-      <span>{label}</span>
-      <span className="flex items-center gap-2"><span className="pill">{count}</span><IconChevron width={15} height={15} className="text-slate-300" /></span>
-    </button>
-  );
-}
-
-export default function StudyTab() {
+export default function StudyTab({ user }: { user: MeUser }) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [subject, setSubject] = useState<Subject | null>(null);
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [chapter, setChapter] = useState<Chapter | null>(null);
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const [classCount, setClassCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get<{ subjects: Subject[] }>('/api/content/subjects')
-      .then((d) => setSubjects(d.subjects)).finally(() => setLoading(false));
+    api.get<{ subjects: Subject[]; classStudentCount: number }>('/api/content/subjects')
+      .then((d) => { setSubjects(d.subjects); setClassCount(d.classStudentCount); })
+      .finally(() => setLoading(false));
   }, []);
 
-  async function openSubject(s: Subject) {
-    setSubject(s); setChapter(null); setMaterials([]);
-    const d = await api.get<{ chapters: Chapter[] }>(`/api/content/chapters?subjectId=${s.id}`);
-    setChapters(d.chapters);
-  }
-  async function openChapter(c: Chapter) {
-    setChapter(c);
-    const d = await api.get<{ materials: Material[] }>(`/api/content/materials?chapterId=${c.id}`);
-    setMaterials(d.materials);
-  }
-  async function download(m: Material) {
-    const d = await api.get<{ url: string }>(`/api/content/materials/${m.id}/download`);
-    window.open(d.url, '_blank', 'noopener');
-  }
-
-  if (loading) return <p className="text-sm text-slate-500">Loading subjects…</p>;
-  if (subjects.length === 0)
-    return (
-      <div className="card grid place-items-center py-16 text-center">
-        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-500"><IconBook width={24} height={24} /></span>
-        <p className="text-sm font-medium text-slate-700">No content published for your class yet</p>
-        <p className="mt-1 text-sm text-slate-400">Check back once your admin adds subjects and materials.</p>
-      </div>
-    );
+  if (loading) return <p className="text-sm text-slate-500">Loading your subjects…</p>;
 
   return (
-    <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-      <Panel title="Subjects">
-        <ul className="space-y-1">
-          {subjects.map((s) => (
-            <li key={s.id}><Row active={subject?.id === s.id} onClick={() => openSubject(s)} label={s.name} count={`${s._count.chapters}`} /></li>
-          ))}
-        </ul>
-      </Panel>
+    <div className="space-y-6">
+      {/* Context: Board + Class */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard label="Board" value={user.board?.name ?? '—'} sub={user.board?.code?.toUpperCase()} icon={<IconBook width={22} height={22} />} />
+        <StatCard label="Class" value={user.class?.name ?? '—'} sub={`Academic year ${user.academicYear ?? ''}`} icon={<IconBook width={22} height={22} />} />
+        <StatCard label="Classmates" value={`${classCount}`} sub="students in your class" icon={<IconUsers width={22} height={22} />} />
+      </div>
 
-      <Panel title="Chapters">
-        {!subject && <p className="text-sm text-slate-400">Select a subject.</p>}
-        {subject && chapters.length === 0 && <p className="text-sm text-slate-400">No chapters yet.</p>}
-        <ul className="space-y-1">
-          {chapters.map((c) => (
-            <li key={c.id}><Row active={chapter?.id === c.id} onClick={() => openChapter(c)} label={`${c.orderIndex}. ${c.name}`} count={`${c._count.materials}`} /></li>
-          ))}
-        </ul>
-      </Panel>
+      {/* Subjects */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Your subjects</h2>
+          <span className="pill">{subjects.length} subject{subjects.length === 1 ? '' : 's'}</span>
+        </div>
 
-      <div className="card flex flex-col">
-        <div className="section-title mb-3"><span className="text-brand-500"><IconFile /></span>Materials</div>
-        {!chapter && <p className="text-sm text-slate-400">Select a chapter.</p>}
-        {chapter && materials.length === 0 && <p className="text-sm text-slate-400">No materials yet.</p>}
-        <ul className="space-y-2">
-          {materials.map((m) => (
-            <li key={m.id} className="rounded-xl border border-slate-200 p-3">
-              <div className="flex items-start gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600"><IconFile width={17} height={17} /></span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-800">{m.title}</p>
-                  {m.description && <p className="mt-0.5 text-xs text-slate-500">{m.description}</p>}
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="pill">{m.type} · {fmtSize(m.fileSize)}</span>
-                    <button className="btn-ghost btn-sm" onClick={() => download(m)}><IconDownload width={15} height={15} />Open</button>
-                  </div>
+        {subjects.length === 0 ? (
+          <div className="card grid place-items-center py-16 text-center">
+            <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-500"><IconBook width={24} height={24} /></span>
+            <p className="text-sm font-medium text-slate-700">No subjects published for your class yet</p>
+            <p className="mt-1 text-sm text-slate-400">They&apos;ll appear here once your admin adds them.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {subjects.map((s, i) => (
+              <Link key={s.id} href={`/dashboard/subject/${s.id}`}
+                className="group card transition hover:-translate-y-0.5 hover:shadow-lift">
+                <div className="flex items-start justify-between">
+                  <span className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${accents[i % accents.length]} text-white shadow-sm`}>
+                    <IconBook width={20} height={20} />
+                  </span>
+                  <IconChevron className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-brand-500" />
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+                <h3 className="mt-4 text-base font-bold text-slate-900">{s.name}</h3>
+                <div className="mt-3 flex items-center gap-4 text-sm text-slate-500">
+                  <span className="flex items-center gap-1.5"><IconBook width={15} height={15} className="text-slate-400" />{s.chapterCount} chapter{s.chapterCount === 1 ? '' : 's'}</span>
+                  <span className="flex items-center gap-1.5"><IconUsers width={15} height={15} className="text-slate-400" />{s.studentCount} studying</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

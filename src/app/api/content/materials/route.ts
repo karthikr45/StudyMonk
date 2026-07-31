@@ -25,6 +25,16 @@ export async function GET(req: NextRequest) {
     });
     if (!chapter) return fail('Chapter not available for your class', 403, 'FORBIDDEN');
 
+    // Record that this student is using the chapter (unique per student+chapter),
+    // powering the "students using it" counts. Best-effort — never blocks reads.
+    prisma.chapterView
+      .upsert({
+        where: { userId_chapterId: { userId: auth.id, chapterId } },
+        update: {},
+        create: { userId: auth.id, chapterId },
+      })
+      .catch((e) => console.error('chapterView upsert failed', e));
+
     const materials = await prisma.studyMaterial.findMany({
       where: { chapterId, isActive: true },
       orderBy: { createdAt: 'asc' },
