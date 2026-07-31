@@ -12,7 +12,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:studio": "prisma studio",
     "hash": "tsx scripts/hash-password.ts",
-    "create:superadmin": "tsx scripts/create-superadmin.ts"
+    "create:superadmin": "tsx --env-file=.env scripts/create-superadmin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.637.0",

@@ -22,6 +22,14 @@ async function main() {
   const name = arg('--name') ?? process.env.SUPERADMIN_NAME ?? '';
   const password = arg('--password') ?? process.env.SUPERADMIN_PASSWORD ?? '';
 
+  if (!process.env.DATABASE_URL) {
+    console.error(
+      'DATABASE_URL is not set. Make sure a .env file exists with DATABASE_URL,\n' +
+        'then run:  npm run create:superadmin -- --email you@x.com --name "Admin" --password "..."',
+    );
+    process.exit(1);
+  }
+
   if (!email || !name || !password) {
     console.error(
       'Missing input. Provide --email, --name and --password (or the SUPERADMIN_* env vars).',
