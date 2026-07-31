@@ -6,6 +6,7 @@ import { guard } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/http';
 import { ownAttempt } from '@/lib/assessment';
 import { submitAnswersSchema } from '@/lib/validation';
+import { sanitizeAnswer } from '@/lib/sanitize';
 
 // Autosave answers while the attempt is in progress. No grading here.
 export async function POST(
@@ -38,14 +39,14 @@ export async function POST(
             where: { attemptId_questionId: { attemptId: attempt.id, questionId: a.questionId } },
             update: {
               selectedOptionIds: a.selectedOptionIds ?? [],
-              textAnswer: a.textAnswer ?? null,
+              textAnswer: sanitizeAnswer(a.textAnswer),
               numericAnswer: a.numericAnswer ?? null,
             },
             create: {
               attemptId: attempt.id,
               questionId: a.questionId,
               selectedOptionIds: a.selectedOptionIds ?? [],
-              textAnswer: a.textAnswer ?? null,
+              textAnswer: sanitizeAnswer(a.textAnswer),
               numericAnswer: a.numericAnswer ?? null,
             },
           }),

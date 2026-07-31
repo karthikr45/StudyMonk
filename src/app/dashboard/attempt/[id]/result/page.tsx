@@ -103,7 +103,9 @@ export default function AttemptResultPage() {
                       {q.type === 'NUMERIC' && <p className="text-sm text-slate-600">Your answer: <b>{q.yourNumeric ?? '—'}</b></p>}
                       {(q.type === 'SHORT' || q.type === 'LONG') && (
                         <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-                          <p className="whitespace-pre-wrap">{q.yourText || '— no answer —'}</p>
+                          {q.type === 'LONG' && q.yourText
+                            ? <div className="prose-answer" dangerouslySetInnerHTML={{ __html: q.yourText }} />
+                            : <p className="whitespace-pre-wrap">{q.yourText || '— no answer —'}</p>}
                           {q.modelAnswer && <p className="mt-2 text-xs text-slate-500"><b>Model answer:</b> {q.modelAnswer}</p>}
                         </div>
                       )}

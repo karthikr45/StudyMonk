@@ -8,7 +8,7 @@ import { api, ApiError } from '@/lib/client/api';
 import Header from '@/components/Header';
 
 interface Ans {
-  id: string; awardedMarks: number; isCorrect: boolean | null; gradedBy: string | null;
+  id: string; awardedMarks: number; isCorrect: boolean | null; gradedBy: string | null; confidence: number | null;
   textAnswer: string | null; feedback: string | null;
   question: { id: string; type: string; prompt: string; marks: number; modelAnswer: string | null };
 }
@@ -25,11 +25,23 @@ export default function ResultsPage() {
   const [grades, setGrades] = useState<Record<string, { marks: string; feedback: string }>>({});
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
     if (!loading && user && user.role !== 'SUPER_ADMIN') router.replace('/dashboard');
   }, [user, loading, router]);
+  useEffect(() => { api.get<{ enabled: boolean }>('/api/admin/ai-status').then((d) => setAiEnabled(d.enabled)).catch(() => {}); }, []);
+
+  async function aiGrade() {
+    setAiBusy(true); setError(null);
+    try {
+      const d = await api.post<{ graded: number }>(`/api/admin/assessments/${params.id}/ai-grade`);
+      setMsg(`AI graded ${d.graded} written answer(s). Review low-confidence ones, then publish.`);
+      await load();
+    } catch (e) { setError(e instanceof ApiError ? e.message : String(e)); } finally { setAiBusy(false); }
+  }
 
   async function load() {
     const d = await api.get<{ attempts: Attempt[] }>(`/api/admin/assessments/${params.id}/results`);
@@ -62,7 +74,10 @@ export default function ResultsPage() {
       <main className="mx-auto max-w-4xl px-6 py-8 animate-fade-in">
         <div className="mb-5 flex items-center justify-between">
           <Link href="/admin/assessments" className="text-sm text-slate-500 hover:text-brand-600">← Assessments</Link>
-          <button className="btn" onClick={publishAll}>Publish all results</button>
+          <div className="flex gap-2">
+            {aiEnabled && <button className="btn-ghost" disabled={aiBusy} onClick={aiGrade}>{aiBusy ? 'AI grading…' : '🤖 AI-grade written'}</button>}
+            <button className="btn" onClick={publishAll}>Publish all results</button>
+          </div>
         </div>
         {error && <div className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
         {msg && <div className="mb-4 rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{msg}</div>}
@@ -71,7 +86,8 @@ export default function ResultsPage() {
 
         <ul className="space-y-4">
           {attempts.map((att) => {
-            const needsReview = att.answers.some((a) => a.gradedBy === null);
+            const reviewable = (a: Ans) => a.gradedBy === null || (a.gradedBy === 'AI' && (a.confidence ?? 1) < 0.7);
+            const needsReview = att.answers.some(reviewable);
             return (
               <li key={att.id} className="card">
                 <div className="mb-3 flex items-center justify-between">
@@ -85,15 +101,21 @@ export default function ResultsPage() {
                   </div>
                 </div>
 
-                {/* Subjective answers needing grading */}
-                {att.answers.filter((a) => a.gradedBy === null).map((a) => (
+                {/* Subjective answers needing (or open to) grading */}
+                {att.answers.filter(reviewable).map((a) => (
                   <div key={a.id} className="mb-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                    <p className="text-sm font-medium text-slate-800">{a.question.prompt} <span className="pill">{a.question.marks}m</span></p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{a.textAnswer || <span className="text-slate-400">— no answer —</span>}</p>
+                    <p className="text-sm font-medium text-slate-800">{a.question.prompt} <span className="pill">{a.question.marks}m</span>
+                      {a.gradedBy === 'AI' && <span className="pill-brand ml-1">AI · {Math.round((a.confidence ?? 0) * 100)}%</span>}
+                    </p>
+                    {a.question.type === 'LONG' && a.textAnswer
+                      ? <div className="prose-answer mt-1" dangerouslySetInnerHTML={{ __html: a.textAnswer }} />
+                      : <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{a.textAnswer || <span className="text-slate-400">— no answer —</span>}</p>}
                     {a.question.modelAnswer && <p className="mt-1 text-xs text-slate-400">Model: {a.question.modelAnswer}</p>}
+                    {a.gradedBy === 'AI' && a.feedback && <p className="mt-1 text-xs text-slate-500">AI feedback: {a.feedback}</p>}
                     <div className="mt-2 flex gap-2">
                       <input className="input w-24" type="number" min={0} max={a.question.marks} placeholder={`0–${a.question.marks}`}
-                        value={grades[a.id]?.marks ?? ''} onChange={(e) => setGrades((g) => ({ ...g, [a.id]: { ...g[a.id], marks: e.target.value, feedback: g[a.id]?.feedback ?? '' } }))} />
+                        value={grades[a.id]?.marks ?? (a.gradedBy === 'AI' ? String(a.awardedMarks) : '')}
+                        onChange={(e) => setGrades((g) => ({ ...g, [a.id]: { ...g[a.id], marks: e.target.value, feedback: g[a.id]?.feedback ?? '' } }))} />
                       <input className="input" placeholder="Feedback (optional)"
                         value={grades[a.id]?.feedback ?? ''} onChange={(e) => setGrades((g) => ({ ...g, [a.id]: { marks: g[a.id]?.marks ?? '', feedback: e.target.value } }))} />
                     </div>

@@ -2,6 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // pdf-parse (pdfjs) uses dynamic requires — keep it out of the bundle so it
+  // loads correctly at runtime for AI question generation from PDFs.
+  experimental: { serverComponentsExternalPackages: ['pdf-parse'] },
   async headers() {
     return [
       {

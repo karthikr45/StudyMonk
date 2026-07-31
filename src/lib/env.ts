@@ -21,6 +21,16 @@ const schema = z.object({
   R2_ENDPOINT: z.string().url(),
 
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+
+  // ---- AI provider (optional; open-source, pluggable) ----
+  // AI_PROVIDER=none disables AI (engine runs manual-only).
+  AI_PROVIDER: z.enum(['none', 'ollama', 'openai_compatible']).default('none'),
+  AI_MODEL: z.string().optional(),
+  // Ollama (local, open-source)
+  OLLAMA_URL: z.string().url().optional(),
+  // OpenAI-compatible open-model server
+  AI_BASE_URL: z.string().url().optional(),
+  AI_API_KEY: z.string().optional(),
 });
 
 let cached: z.infer<typeof schema> | null = null;

@@ -168,6 +168,22 @@ export const submitAnswersSchema = z.object({
     .max(200),
 });
 
+export const generateSchema = z.object({
+  subjectId: z.string().min(1),
+  chapterId: z.string().min(1).nullable().optional(),
+  difficulty: difficultyEnum.default('MEDIUM'),
+  counts: z
+    .object({
+      MCQ: z.coerce.number().int().min(0).max(20).optional(),
+      TRUE_FALSE: z.coerce.number().int().min(0).max(20).optional(),
+      NUMERIC: z.coerce.number().int().min(0).max(20).optional(),
+      SHORT: z.coerce.number().int().min(0).max(20).optional(),
+      LONG: z.coerce.number().int().min(0).max(20).optional(),
+    })
+    .refine((c) => Object.values(c).reduce((n, v) => n + (v ?? 0), 0) > 0, 'Request at least one question')
+    .refine((c) => Object.values(c).reduce((n, v) => n + (v ?? 0), 0) <= 25, 'At most 25 questions per generation'),
+});
+
 export const gradeAnswerSchema = z.object({
   answers: z
     .array(

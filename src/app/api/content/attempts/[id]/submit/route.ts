@@ -7,6 +7,7 @@ import { ok, fail, handleError } from '@/lib/http';
 import { ownAttempt } from '@/lib/assessment';
 import { submitAnswersSchema } from '@/lib/validation';
 import { gradeAnswer } from '@/lib/grading';
+import { sanitizeAnswer } from '@/lib/sanitize';
 
 // Save final answers, auto-grade objective questions, compute the score.
 // Subjective questions are left for review (attempt = NEEDS_REVIEW).
@@ -43,7 +44,7 @@ export async function POST(
           where: { attemptId_questionId: { attemptId: attempt.id, questionId: item.questionId } },
         });
         const selectedOptionIds = a?.selectedOptionIds ?? saved?.selectedOptionIds ?? [];
-        const textAnswer = a?.textAnswer ?? saved?.textAnswer ?? null;
+        const textAnswer = sanitizeAnswer(a?.textAnswer ?? saved?.textAnswer ?? null);
         const numericAnswer = a?.numericAnswer ?? saved?.numericAnswer ?? null;
 
         const grade = gradeAnswer(

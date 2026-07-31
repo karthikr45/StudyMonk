@@ -46,6 +46,16 @@ body {
     @apply inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700;
   }
 
+  /* Rich answer content (editor + rendered) */
+  .prose-answer { @apply text-sm leading-relaxed text-slate-800; }
+  .prose-answer h2 { @apply mt-2 mb-1 text-base font-bold; }
+  .prose-answer h3 { @apply mt-2 mb-1 text-sm font-semibold; }
+  .prose-answer ul { @apply my-1 list-disc pl-5; }
+  .prose-answer ol { @apply my-1 list-decimal pl-5; }
+  .prose-answer blockquote { @apply border-l-2 border-slate-300 pl-3 text-slate-600; }
+  .prose-answer pre { @apply my-1 rounded-md bg-slate-900 p-3 text-xs text-slate-100 overflow-x-auto; }
+  .prose-answer p { @apply my-1; }
+
   /* Selectable list row */
   .row {
     @apply flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50;

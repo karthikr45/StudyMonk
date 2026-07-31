@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMe } from '@/lib/client/useAuth';
 import { api, ApiError } from '@/lib/client/api';
 import Header from '@/components/Header';
+import RichEditor from '@/components/RichEditor';
 
 interface Q { id: string; type: string; prompt: string; marks: number; options: { id: string; text: string }[] }
 interface Ans { selectedOptionIds?: string[]; textAnswer?: string; numericAnswer?: number | null }
@@ -134,11 +135,7 @@ export default function RunnerPage() {
                       value={answers[q.id]?.textAnswer ?? ''} onChange={(e) => set(q.id, { textAnswer: e.target.value })} />
                   )}
                   {q.type === 'LONG' && (
-                    <div>
-                      <textarea className="input min-h-[140px]" placeholder="Write your answer…"
-                        value={answers[q.id]?.textAnswer ?? ''} onChange={(e) => set(q.id, { textAnswer: e.target.value })} />
-                      <p className="mt-1 text-xs text-slate-400">{(answers[q.id]?.textAnswer ?? '').trim().split(/\s+/).filter(Boolean).length} words</p>
-                    </div>
+                    <RichEditor value={answers[q.id]?.textAnswer ?? ''} onChange={(html) => set(q.id, { textAnswer: html })} />
                   )}
                 </li>
               ))}

@@ -62,3 +62,12 @@ export async function deleteObject(key: string): Promise<void> {
     new DeleteObjectCommand({ Bucket: env().R2_BUCKET_NAME, Key: key }),
   );
 }
+
+/** Download an object's bytes (used for server-side PDF text extraction). */
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const res = await r2().send(
+    new GetObjectCommand({ Bucket: env().R2_BUCKET_NAME, Key: key }),
+  );
+  const bytes = await res.Body!.transformToByteArray();
+  return Buffer.from(bytes);
+}

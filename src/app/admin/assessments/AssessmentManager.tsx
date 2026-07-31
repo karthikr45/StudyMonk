@@ -7,6 +7,7 @@ import { api, ApiError } from '@/lib/client/api';
 interface Named { id: string; name: string }
 interface Question {
   id: string; type: string; difficulty: string; marks: number; prompt: string;
+  status: string; source: string;
   chapterId: string | null; options: { id: string; text: string; isCorrect: boolean }[];
 }
 interface Assessment {
@@ -29,11 +30,13 @@ export default function AssessmentManager() {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [aiEnabled, setAiEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const err = (e: unknown) => setError(e instanceof ApiError ? e.message : String(e));
 
   // ---- scope pickers ----
   useEffect(() => { api.get<{ boards: Named[] }>('/api/admin/boards').then((d) => setBoards(d.boards)).catch(err); }, []);
+  useEffect(() => { api.get<{ enabled: boolean }>('/api/admin/ai-status').then((d) => setAiEnabled(d.enabled)).catch(() => {}); }, []);
   useEffect(() => {
     setClassId(''); setSubjectId(''); setSubjects([]); setChapters([]);
     if (boardId) api.get<{ classes: Named[] }>(`/api/admin/classes?boardId=${boardId}`).then((d) => setClasses(d.classes)).catch(err);
@@ -100,7 +103,7 @@ export default function AssessmentManager() {
       {subjectId && (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <QuestionBank
-            subjectId={subjectId} chapterId={chapterId} questions={questions}
+            subjectId={subjectId} chapterId={chapterId} questions={questions} aiEnabled={aiEnabled}
             onChange={() => reloadBank(subjectId, chapterId)} onErr={err}
           />
           <AssessmentBuilder
@@ -114,10 +117,29 @@ export default function AssessmentManager() {
 }
 
 /* ------------------------------- Question bank ------------------------------ */
-function QuestionBank({ subjectId, chapterId, questions, onChange, onErr }: {
-  subjectId: string; chapterId: string; questions: Question[]; onChange: () => void; onErr: (e: unknown) => void;
+function QuestionBank({ subjectId, chapterId, questions, aiEnabled, onChange, onErr }: {
+  subjectId: string; chapterId: string; questions: Question[]; aiEnabled: boolean; onChange: () => void; onErr: (e: unknown) => void;
 }) {
   const [type, setType] = useState<(typeof TYPES)[number]>('MCQ');
+  const [showGen, setShowGen] = useState(false);
+  const [genCounts, setGenCounts] = useState({ MCQ: 5, SHORT: 2, LONG: 0, TRUE_FALSE: 0, NUMERIC: 0 });
+  const [genDiff, setGenDiff] = useState('MEDIUM');
+  const [generating, setGenerating] = useState(false);
+
+  async function generate() {
+    setGenerating(true);
+    try {
+      const payload: any = { subjectId, difficulty: genDiff, counts: genCounts };
+      if (chapterId) payload.chapterId = chapterId;
+      const d = await api.post<{ created: number }>('/api/admin/questions/generate', payload);
+      setShowGen(false);
+      onChange();
+      onErr(null as any); // clear
+      alert(`Generated ${d.created} draft questions. Review and approve them below.`);
+    } catch (e) { onErr(e); } finally { setGenerating(false); }
+  }
+  async function approve(id: string) { try { await api.patch(`/api/admin/questions/${id}`, { status: 'PUBLISHED' }); onChange(); } catch (e) { onErr(e); } }
+
   const [prompt, setPrompt] = useState('');
   const [marks, setMarks] = useState('1');
   const [difficulty, setDifficulty] = useState('MEDIUM');
@@ -152,7 +174,34 @@ function QuestionBank({ subjectId, chapterId, questions, onChange, onErr }: {
 
   return (
     <div className="card">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Question bank ({questions.length})</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Question bank ({questions.length})</h3>
+        {aiEnabled && <button className="btn btn-sm" onClick={() => setShowGen((s) => !s)}>🤖 Generate</button>}
+      </div>
+
+      {showGen && (
+        <div className="mb-4 space-y-2 rounded-xl border border-brand-200 bg-brand-50/60 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Auto-generate from {chapterId ? 'this chapter' : 'the subject'}</p>
+          <div className="grid grid-cols-3 gap-2">
+            {(['MCQ', 'TRUE_FALSE', 'NUMERIC', 'SHORT', 'LONG'] as const).map((t) => (
+              <label key={t} className="text-xs text-slate-600">{t.replace('_', '/')}
+                <input className="input" type="number" min={0} max={20} value={(genCounts as any)[t]}
+                  onChange={(e) => setGenCounts((c) => ({ ...c, [t]: Number(e.target.value) }))} />
+              </label>
+            ))}
+            <label className="text-xs text-slate-600">Difficulty
+              <select className="input" value={genDiff} onChange={(e) => setGenDiff(e.target.value)}>
+                <option>EASY</option><option>MEDIUM</option><option>HARD</option>
+              </select>
+            </label>
+          </div>
+          <button className="btn w-full" disabled={generating} onClick={generate}>
+            {generating ? 'Generating… (this can take a minute)' : 'Generate draft questions'}
+          </button>
+          <p className="text-[11px] text-slate-500">Drafts are reviewed &amp; approved before students see them.</p>
+        </div>
+      )}
+
       <form onSubmit={add} className="mb-4 space-y-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3">
         <div className="flex gap-2">
           <select className="input" value={type} onChange={(e) => setType(e.target.value as any)}>
@@ -196,13 +245,20 @@ function QuestionBank({ subjectId, chapterId, questions, onChange, onErr }: {
       <ul className="space-y-2">
         {questions.length === 0 && <li className="text-sm text-slate-400">No questions yet.</li>}
         {questions.map((q) => (
-          <li key={q.id} className="rounded-lg border border-slate-200 p-2.5">
+          <li key={q.id} className={`rounded-lg border p-2.5 ${q.status === 'DRAFT' ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200'}`}>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm text-slate-800">{q.prompt}</p>
-                <p className="mt-1 flex gap-1.5"><span className="pill">{q.type.replace('_', '/')}</span><span className="pill">{q.marks}m</span><span className="pill">{q.difficulty}</span>{!objectiveType(q.type) && <span className="pill-brand">subjective</span>}</p>
+                <p className="mt-1 flex flex-wrap gap-1.5">
+                  <span className="pill">{q.type.replace('_', '/')}</span><span className="pill">{q.marks}m</span><span className="pill">{q.difficulty}</span>
+                  {q.source === 'AI' && <span className="pill-brand">AI</span>}
+                  {q.status === 'DRAFT' && <span className="pill" style={{ color: '#b45309', background: '#fffbeb' }}>draft</span>}
+                </p>
               </div>
-              <button className="shrink-0 text-slate-300 hover:text-red-600" onClick={() => del(q.id)} title="Delete">✕</button>
+              <div className="flex shrink-0 items-center gap-2">
+                {q.status === 'DRAFT' && <button className="btn btn-sm" onClick={() => approve(q.id)}>Approve</button>}
+                <button className="text-slate-300 hover:text-red-600" onClick={() => del(q.id)} title="Delete">✕</button>
+              </div>
             </div>
           </li>
         ))}
