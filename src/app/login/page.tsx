@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/client/api';
+import AuthShell from '@/components/AuthShell';
 
 interface LoginResp {
   user: { role: 'SUPER_ADMIN' | 'STUDENT' };
@@ -31,33 +32,36 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-      <div className="card">
-        <h1 className="text-2xl font-semibold">Sign in</h1>
-        <p className="mt-1 text-sm text-slate-500">Access your StudyMonk account.</p>
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="label" htmlFor="email">Email</label>
-            <input id="email" type="email" className="input" value={email}
-              onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-          </div>
-          <div>
-            <label className="label" htmlFor="password">Password</label>
-            <input id="password" type="password" className="input" value={password}
-              onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button className="btn w-full" disabled={busy}>
-            {busy ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
-        <p className="mt-4 text-center text-sm text-slate-500">
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to continue studying."
+      footer={
+        <>
           New student?{' '}
-          <Link href="/register" className="font-medium text-brand hover:underline">
+          <Link href="/register" className="font-semibold text-brand-600 hover:underline">
             Create an account
           </Link>
-        </p>
-      </div>
-    </main>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div>
+          <label className="label" htmlFor="email">Email</label>
+          <input id="email" type="email" className="input" value={email}
+            onChange={(e) => setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com" />
+        </div>
+        <div>
+          <label className="label" htmlFor="password">Password</label>
+          <input id="password" type="password" className="input" value={password}
+            onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" placeholder="••••••••" />
+        </div>
+        {error && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        )}
+        <button className="btn w-full" disabled={busy}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

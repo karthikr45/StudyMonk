@@ -6,6 +6,7 @@ import { useMe } from '@/lib/client/useAuth';
 import Header from '@/components/Header';
 import StudyTab from './StudyTab';
 import GroupsTab from './GroupsTab';
+import { IconBook, IconUsers } from '@/components/icons';
 
 export default function Dashboard() {
   const { user, loading } = useMe();
@@ -18,23 +19,38 @@ export default function Dashboard() {
   }, [user, loading, router]);
 
   if (loading || !user) {
-    return <main className="p-10 text-sm text-slate-500">Loading…</main>;
+    return <main className="grid min-h-screen place-items-center text-sm text-slate-500">Loading…</main>;
   }
 
   const subtitle = user.board && user.class
-    ? `${user.board.name} · ${user.class.name} · ${user.academicYear} · ${user.schoolDisplay}`
+    ? `${user.board.name} · ${user.class.name} · ${user.academicYear}`
     : undefined;
+
+  const tabs = [
+    { key: 'study' as const, label: 'Study', icon: IconBook },
+    { key: 'groups' as const, label: 'Study groups', icon: IconUsers },
+  ];
 
   return (
     <div className="min-h-screen">
       <Header user={user} subtitle={subtitle} />
-      <main className="mx-auto max-w-6xl px-6 py-6">
-        <div className="mb-6 flex gap-2">
-          <button onClick={() => setTab('study')}
-            className={tab === 'study' ? 'btn' : 'btn-ghost'}>Study</button>
-          <button onClick={() => setTab('groups')}
-            className={tab === 'groups' ? 'btn' : 'btn-ghost'}>Study groups</button>
+      <main className="mx-auto max-w-6xl px-6 py-8 animate-fade-in">
+        <div className="mb-6 flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-slate-900">Hi {user.fullName.split(' ')[0]} 👋</h1>
+          {user.schoolDisplay && (
+            <p className="text-sm text-slate-500">{user.schoolDisplay}</p>
+          )}
         </div>
+
+        <div className="mb-6 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-card">
+          {tabs.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${tab === t.key ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <t.icon width={16} height={16} />{t.label}
+            </button>
+          ))}
+        </div>
+
         {tab === 'study' ? <StudyTab /> : <GroupsTab />}
       </main>
     </div>
