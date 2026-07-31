@@ -100,6 +100,10 @@ export const postSchema = z.object({
   body: z.string().min(1).max(4000),
 });
 
+export const addMemberSchema = z.object({
+  userId: z.string().min(1),
+});
+
 /** Normalize a school name for reliable matching (trim + collapse + lower). */
 export function normalizeSchool(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLowerCase();

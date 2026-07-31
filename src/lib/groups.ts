@@ -30,3 +30,12 @@ export async function requireMembership(groupId: string, userId: string) {
   if (!member) throw new HttpError('You are not a member of this group', 403, 'NOT_MEMBER');
   return member;
 }
+
+/** Require the caller to be an OWNER of the group. */
+export async function requireOwner(groupId: string, userId: string) {
+  const member = await requireMembership(groupId, userId);
+  if (member.role !== 'OWNER') {
+    throw new HttpError('Only the group owner can do this', 403, 'NOT_OWNER');
+  }
+  return member;
+}

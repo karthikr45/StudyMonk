@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/client/api';
-import { IconUsers, IconPlus, IconChat } from '@/components/icons';
+import { IconUsers, IconPlus, IconChat, IconTrash } from '@/components/icons';
 
 interface Group {
   id: string; name: string; description: string | null; memberCount: number;
@@ -10,6 +10,7 @@ interface Group {
 }
 interface Member { role: string; joinedAt: string; user: { id: string; fullName: string } }
 interface Post { id: string; body: string; createdAt: string; author: { id: string; fullName: string } }
+interface Classmate { id: string; fullName: string; email: string }
 
 export default function GroupsTab() {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -21,6 +22,9 @@ export default function GroupsTab() {
   const [members, setMembers] = useState<Member[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [msg, setMsg] = useState('');
+  const [eligible, setEligible] = useState<Classmate[]>([]);
+
+  const isOwner = open?.myRole === 'OWNER';
 
   async function load() {
     const d = await api.get<{ groups: Group[]; scope: typeof scope }>('/api/groups');
@@ -40,10 +44,31 @@ export default function GroupsTab() {
     if (open?.id === g.id) setOpen(null);
     await load();
   }
+  async function refreshDetail(groupId: string, owner: boolean) {
+    const d = await api.get<{ members: Member[]; posts: Post[] }>(`/api/groups/${groupId}`);
+    setMembers(d.members); setPosts(d.posts);
+    if (owner) {
+      const e = await api.get<{ students: Classmate[] }>(`/api/groups/${groupId}/eligible`);
+      setEligible(e.students);
+    } else {
+      setEligible([]);
+    }
+  }
   async function openGroup(g: Group) {
     setOpen(g);
-    const d = await api.get<{ members: Member[]; posts: Post[] }>(`/api/groups/${g.id}`);
-    setMembers(d.members); setPosts(d.posts);
+    await refreshDetail(g.id, g.myRole === 'OWNER');
+  }
+  async function addMember(c: Classmate) {
+    if (!open) return;
+    await api.post(`/api/groups/${open.id}/members`, { userId: c.id });
+    await refreshDetail(open.id, true);
+    await load();
+  }
+  async function removeMember(m: Member) {
+    if (!open) return;
+    await api.del(`/api/groups/${open.id}/members/${m.user.id}`);
+    await refreshDetail(open.id, true);
+    await load();
   }
   async function post(e: React.FormEvent) {
     e.preventDefault();
@@ -126,11 +151,45 @@ export default function GroupsTab() {
             </div>
             <div className="mb-3 flex flex-wrap gap-1.5">
               {members.map((m) => (
-                <span key={m.user.id} className={m.role === 'OWNER' ? 'pill-brand' : 'pill'}>
+                <span key={m.user.id} className={`${m.role === 'OWNER' ? 'pill-brand' : 'pill'} ${isOwner && m.role !== 'OWNER' ? 'pr-1' : ''}`}>
                   {m.user.fullName}{m.role === 'OWNER' ? ' ★' : ''}
+                  {isOwner && m.role !== 'OWNER' && (
+                    <button onClick={() => removeMember(m)} className="ml-0.5 rounded-full p-0.5 text-slate-400 hover:bg-red-100 hover:text-red-600" aria-label={`Remove ${m.user.fullName}`}>
+                      <IconTrash width={12} height={12} />
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
+
+            {/* Owner-only: add classmates */}
+            {isOwner && (
+              <div className="mb-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  <IconUsers width={14} height={14} /> Add classmates
+                </p>
+                {eligible.length === 0 ? (
+                  <p className="text-sm text-slate-400">
+                    No other classmates from your school &amp; class have registered yet.
+                  </p>
+                ) : (
+                  <ul className="max-h-40 space-y-1 overflow-y-auto">
+                    {eligible.map((c) => (
+                      <li key={c.id} className="flex items-center justify-between rounded-lg bg-white px-3 py-1.5">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-slate-700">{c.fullName}</span>
+                          <span className="block truncate text-xs text-slate-400">{c.email}</span>
+                        </span>
+                        <button className="btn btn-sm shrink-0" onClick={() => addMember(c)}>
+                          <IconPlus width={14} height={14} />Add
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             <form onSubmit={post} className="mb-3 flex gap-2">
               <input className="input" placeholder="Share something with your group…" value={msg} onChange={(e) => setMsg(e.target.value)} />
               <button className="btn shrink-0">Post</button>
