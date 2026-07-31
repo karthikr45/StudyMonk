@@ -7,7 +7,7 @@ import { ok, fail, handleError } from '@/lib/http';
 import { studentProfile } from '@/lib/student';
 
 // Elaborated subject page: the subject plus its chapters, each with a material
-// count and how many students are using it. Scoped to the student's own class.
+// count and how many students are using it (enrolled in this board+class).
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } },
@@ -22,39 +22,32 @@ export async function GET(
     });
     if (!subject) return fail('Subject not available for your class', 403, 'FORBIDDEN');
 
-    const chapters = await prisma.chapter.findMany({
-      where: { subjectId: subject.id, isActive: true },
-      orderBy: { orderIndex: 'asc' },
-      select: {
-        id: true,
-        name: true,
-        orderIndex: true,
-        _count: {
-          select: {
-            materials: { where: { isActive: true } },
-            views: true, // views are unique per (student, chapter) → distinct students
-          },
+    const [chapters, classStudentCount] = await Promise.all([
+      prisma.chapter.findMany({
+        where: { subjectId: subject.id, isActive: true },
+        orderBy: { orderIndex: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          orderIndex: true,
+          _count: { select: { materials: { where: { isActive: true } } } },
         },
-      },
-    });
+      }),
+      prisma.user.count({
+        where: { role: 'STUDENT', isActive: true, boardId: profile.boardId, classId: profile.classId },
+      }),
+    ]);
 
     const shaped = chapters.map((c) => ({
       id: c.id,
       name: c.name,
       orderIndex: c.orderIndex,
       materialCount: c._count.materials,
-      studentCount: c._count.views,
+      studentCount: classStudentCount,
     }));
 
-    // Distinct students using the subject overall.
-    const distinct = await prisma.chapterView.findMany({
-      where: { chapter: { subjectId: subject.id } },
-      distinct: ['userId'],
-      select: { userId: true },
-    });
-
     return ok({
-      subject: { ...subject, studentCount: distinct.length, chapterCount: chapters.length },
+      subject: { ...subject, studentCount: classStudentCount, chapterCount: chapters.length },
       chapters: shaped,
     });
   } catch (err) {
