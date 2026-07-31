@@ -1,0 +1,216 @@
+// StudyMonk — CBSE offline study application
+// All application data lives here. Nothing is hardcoded in app code.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  STUDENT
+}
+
+// ---------------------------------------------------------------------------
+// Users & authentication
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  role         Role     @default(STUDENT)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Student profile fields — set at registration. Null for SUPER_ADMIN.
+  boardId       String?
+  classId       String?
+  academicYear  String? // e.g. "2025-2026"
+  schoolName    String? // normalized (trimmed, lower-cased) for matching
+  schoolDisplay String? // original school name as typed
+
+  board   Board? @relation(fields: [boardId], references: [id])
+  class   Class? @relation(fields: [classId], references: [id])
+
+  sessions       Session[]
+  groupMemberships GroupMember[]
+  createdGroups  StudyGroup[]   @relation("GroupCreator")
+  posts          GroupPost[]
+  uploadedMaterials StudyMaterial[] @relation("MaterialUploader")
+
+  @@index([boardId, classId, academicYear, schoolName])
+}
+
+// Refresh-token sessions (rotating). Access tokens are stateless JWTs.
+model Session {
+  id               String   @id @default(cuid())
+  userId           String
+  refreshTokenHash String   @unique
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Academic catalog (created by SUPER_ADMIN)
+// ---------------------------------------------------------------------------
+
+model Board {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "CBSE"
+  code      String   @unique // e.g. "cbse"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classes Class[]
+  users   User[]
+}
+
+model Class {
+  id        String   @id @default(cuid())
+  boardId   String
+  name      String // e.g. "Class 10"
+  level     Int // e.g. 10, used for ordering
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board    Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  subjects Subject[]
+  users    User[]
+
+  @@unique([boardId, name])
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  classId   String
+  name      String // e.g. "Mathematics"
+  code      String // e.g. "math"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  class    Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  chapters Chapter[]
+
+  @@unique([classId, code])
+}
+
+model Chapter {
+  id         String   @id @default(cuid())
+  subjectId  String
+  name       String // e.g. "Real Numbers"
+  orderIndex Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  materials StudyMaterial[]
+
+  @@index([subjectId])
+}
+
+enum MaterialType {
+  PDF
+  VIDEO
+  IMAGE
+  DOCUMENT
+  OTHER
+}
+
+// A piece of NCERT study content. The actual file lives in R2; we store the key.
+model StudyMaterial {
+  id          String       @id @default(cuid())
+  chapterId   String
+  title       String
+  description String?
+  type        MaterialType @default(PDF)
+  storageKey  String // object key in the R2 bucket
+  fileName    String
+  fileSize    Int // bytes
+  contentType String
+  isActive    Boolean      @default(true)
+  uploadedById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  chapter    Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  uploadedBy User?   @relation("MaterialUploader", fields: [uploadedById], references: [id])
+
+  @@index([chapterId])
+}
+
+// ---------------------------------------------------------------------------
+// Study groups (Teams-like). Members must share board + class + academic year
+// + school. Matching is enforced in application logic against these fields.
+// ---------------------------------------------------------------------------
+
+enum GroupMemberRole {
+  OWNER
+  MEMBER
+}
+
+model StudyGroup {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  // Matching key: only students whose profile matches all four may join.
+  boardId      String
+  classId      String
+  academicYear String
+  schoolName   String // normalized school name
+  createdById  String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy User          @relation("GroupCreator", fields: [createdById], references: [id])
+  members   GroupMember[]
+  posts     GroupPost[]
+
+  @@index([boardId, classId, academicYear, schoolName])
+}
+
+model GroupMember {
+  id       String          @id @default(cuid())
+  groupId  String
+  userId   String
+  role     GroupMemberRole @default(MEMBER)
+  joinedAt DateTime        @default(now())
+
+  group StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+// Simple discussion feed inside a group.
+model GroupPost {
+  id        String   @id @default(cuid())
+  groupId   String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  group  StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+}
