@@ -33,9 +33,9 @@ export default function CatalogManager() {
   const [error, setError] = useState<string | null>(null);
 
   // form state
-  const [bName, setBName] = useState(''); const [bCode, setBCode] = useState('');
+  const [bName, setBName] = useState('');
   const [cName, setCName] = useState(''); const [cLevel, setCLevel] = useState('');
-  const [sName, setSName] = useState(''); const [sCode, setSCode] = useState('');
+  const [sName, setSName] = useState('');
   const [chName, setChName] = useState(''); const [chOrder, setChOrder] = useState('');
   const [mTitle, setMTitle] = useState(''); const [mDesc, setMDesc] = useState('');
   const [mFile, setMFile] = useState<File | null>(null); const [uploading, setUploading] = useState(false);
@@ -67,7 +67,8 @@ export default function CatalogManager() {
 
   async function addBoard(e: React.FormEvent) {
     e.preventDefault(); setError(null);
-    try { await api.post('/api/admin/boards', { name: bName, code: bCode }); setBName(''); setBCode(''); await loadBoards(); }
+    // code is auto-derived from the name on the server (slugified).
+    try { await api.post('/api/admin/boards', { name: bName, code: bName }); setBName(''); await loadBoards(); }
     catch (e) { err(e); }
   }
   async function addClass(e: React.FormEvent) {
@@ -77,7 +78,7 @@ export default function CatalogManager() {
   }
   async function addSubject(e: React.FormEvent) {
     e.preventDefault(); setError(null); if (!klass) return;
-    try { await api.post('/api/admin/subjects', { classId: klass.id, name: sName, code: sCode }); setSName(''); setSCode(''); await selectClass(klass); }
+    try { await api.post('/api/admin/subjects', { classId: klass.id, name: sName, code: sName }); setSName(''); await selectClass(klass); }
     catch (e) { err(e); }
   }
   async function addChapter(e: React.FormEvent) {
@@ -108,8 +109,7 @@ export default function CatalogManager() {
         {/* Boards */}
         <Section title="Boards">
           <form onSubmit={addBoard} className="mb-3 space-y-2">
-            <input className="input" placeholder="Name e.g. CBSE" value={bName} onChange={(e) => setBName(e.target.value)} required />
-            <input className="input" placeholder="Code e.g. cbse" value={bCode} onChange={(e) => setBCode(e.target.value)} required />
+            <input className="input" placeholder="Board name e.g. CBSE" value={bName} onChange={(e) => setBName(e.target.value)} required />
             <button className="btn w-full">Add board</button>
           </form>
           <ul className="space-y-1">
@@ -153,8 +153,7 @@ export default function CatalogManager() {
           {klass && (
             <>
               <form onSubmit={addSubject} className="mb-3 space-y-2">
-                <input className="input" placeholder="Name e.g. Mathematics" value={sName} onChange={(e) => setSName(e.target.value)} required />
-                <input className="input" placeholder="Code e.g. math" value={sCode} onChange={(e) => setSCode(e.target.value)} required />
+                <input className="input" placeholder="Subject name e.g. Mathematics" value={sName} onChange={(e) => setSName(e.target.value)} required />
                 <button className="btn w-full">Add subject</button>
               </form>
               <ul className="space-y-1">

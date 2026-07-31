@@ -9,6 +9,22 @@ const academicYear = z
   .string()
   .regex(/^\d{4}-\d{4}$/, 'Academic year must look like 2025-2026');
 
+// A "code" the admin can type however they like (e.g. "CBSE", "Math") — we
+// slugify it: lowercase, spaces/symbols → dashes. So the admin never has to
+// think about the format.
+const codeField = z
+  .string()
+  .min(1, 'Code is required')
+  .max(40)
+  .transform((s) =>
+    s
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, ''),
+  )
+  .refine((s) => s.length >= 2, 'Code must have at least 2 letters/numbers');
+
 // ---- Auth -------------------------------------------------------------------
 
 export const loginSchema = z.object({
@@ -30,11 +46,7 @@ export const registerSchema = z.object({
 
 export const boardSchema = z.object({
   name: z.string().min(2).max(80),
-  code: z
-    .string()
-    .min(2)
-    .max(40)
-    .regex(/^[a-z0-9-]+$/, 'code must be lowercase letters, numbers or dashes'),
+  code: codeField,
   isActive: z.boolean().optional(),
 });
 
@@ -48,11 +60,7 @@ export const classSchema = z.object({
 export const subjectSchema = z.object({
   classId: z.string().min(1),
   name: z.string().min(1).max(80),
-  code: z
-    .string()
-    .min(1)
-    .max(40)
-    .regex(/^[a-z0-9-]+$/, 'code must be lowercase letters, numbers or dashes'),
+  code: codeField,
   isActive: z.boolean().optional(),
 });
 
