@@ -40,6 +40,17 @@ async function main() {
     console.error('Password must be at least 8 characters.');
     process.exit(1);
   }
+  // Guard against passing a bcrypt hash here by mistake — this flag wants the
+  // PLAINTEXT password (the script hashes it). Pasting a hash would make the
+  // hash itself the password.
+  if (/^\$2[aby]\$\d{2}\$/.test(password)) {
+    console.error(
+      'The --password value looks like a bcrypt hash, not a plaintext password.\n' +
+        'Pass the PLAINTEXT password here (this script hashes it for you), e.g.\n' +
+        '  npm run create:superadmin -- --email you@x.com --name "Admin" --password "Admin@321"',
+    );
+    process.exit(1);
+  }
 
   const prisma = new PrismaClient();
   try {
