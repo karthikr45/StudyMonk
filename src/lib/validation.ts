@@ -104,6 +104,83 @@ export const addMemberSchema = z.object({
   userId: z.string().min(1),
 });
 
+// ---- Assessment engine -----------------------------------------------------
+
+export const questionTypeEnum = z.enum(['MCQ', 'TRUE_FALSE', 'NUMERIC', 'SHORT', 'LONG']);
+export const difficultyEnum = z.enum(['EASY', 'MEDIUM', 'HARD']);
+
+export const optionSchema = z.object({
+  text: z.string().min(1).max(1000),
+  isCorrect: z.boolean().default(false),
+  order: z.coerce.number().int().min(0).optional(),
+});
+
+export const questionSchema = z
+  .object({
+    subjectId: z.string().min(1),
+    chapterId: z.string().min(1).nullable().optional(),
+    type: questionTypeEnum,
+    difficulty: difficultyEnum.optional(),
+    marks: z.coerce.number().int().min(1).max(100).default(1),
+    prompt: z.string().min(3).max(4000),
+    explanation: z.string().max(4000).optional(),
+    options: z.array(optionSchema).max(8).optional(),
+    modelAnswer: z.string().max(8000).optional(),
+    rubric: z.string().max(4000).optional(),
+    numericAnswer: z.coerce.number().optional(),
+    numericTolerance: z.coerce.number().min(0).optional(),
+    status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.type === 'MCQ' || v.type === 'TRUE_FALSE') {
+      const opts = v.options ?? [];
+      if (opts.length < 2)
+        ctx.addIssue({ code: 'custom', message: 'Add at least 2 options', path: ['options'] });
+      if (!opts.some((o) => o.isCorrect))
+        ctx.addIssue({ code: 'custom', message: 'Mark one option correct', path: ['options'] });
+    }
+    if (v.type === 'NUMERIC' && v.numericAnswer === undefined)
+      ctx.addIssue({ code: 'custom', message: 'Provide the numeric answer', path: ['numericAnswer'] });
+  });
+
+export const assessmentTypeEnum = z.enum(['DAILY', 'QUIZ', 'ASSIGNMENT', 'EXAM']);
+
+export const assessmentSchema = z.object({
+  type: assessmentTypeEnum,
+  subjectId: z.string().min(1),
+  chapterId: z.string().min(1).nullable().optional(),
+  title: z.string().min(2).max(200),
+  description: z.string().max(2000).optional(),
+  timeLimitSec: z.coerce.number().int().min(30).max(4 * 3600).nullable().optional(),
+  questionIds: z.array(z.string().min(1)).min(1, 'Add at least one question').max(100),
+});
+
+export const submitAnswersSchema = z.object({
+  answers: z
+    .array(
+      z.object({
+        questionId: z.string().min(1),
+        selectedOptionIds: z.array(z.string().min(1)).optional(),
+        textAnswer: z.string().max(20000).optional(),
+        numericAnswer: z.coerce.number().nullable().optional(),
+      }),
+    )
+    .max(200),
+});
+
+export const gradeAnswerSchema = z.object({
+  answers: z
+    .array(
+      z.object({
+        answerId: z.string().min(1),
+        awardedMarks: z.coerce.number().min(0),
+        feedback: z.string().max(4000).optional(),
+      }),
+    )
+    .min(1),
+  publishResults: z.boolean().optional(),
+});
+
 /** Normalize a school name for reliable matching (trim + collapse + lower). */
 export function normalizeSchool(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLowerCase();

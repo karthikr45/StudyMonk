@@ -6,12 +6,13 @@ import { useMe } from '@/lib/client/useAuth';
 import Header from '@/components/Header';
 import StudyTab from './StudyTab';
 import GroupsTab from './GroupsTab';
-import { IconBook, IconUsers } from '@/components/icons';
+import AssessmentsTab from './AssessmentsTab';
+import { IconBook, IconUsers, IconFile } from '@/components/icons';
 
 export default function Dashboard() {
   const { user, loading } = useMe();
   const router = useRouter();
-  const [tab, setTab] = useState<'study' | 'groups'>('study');
+  const [tab, setTab] = useState<'study' | 'assess' | 'groups'>('study');
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -28,6 +29,7 @@ export default function Dashboard() {
 
   const tabs = [
     { key: 'study' as const, label: 'Study', icon: IconBook },
+    { key: 'assess' as const, label: 'Assessments', icon: IconFile },
     { key: 'groups' as const, label: 'Study groups', icon: IconUsers },
   ];
 
@@ -51,7 +53,9 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {tab === 'study' ? <StudyTab user={user} /> : <GroupsTab />}
+        {tab === 'study' && <StudyTab user={user} />}
+        {tab === 'assess' && <AssessmentsTab />}
+        {tab === 'groups' && <GroupsTab />}
       </main>
     </div>
   );

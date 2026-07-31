@@ -45,6 +45,7 @@ model User {
   posts          GroupPost[]
   uploadedMaterials StudyMaterial[] @relation("MaterialUploader")
   chapterViews   ChapterView[]
+  attempts       Attempt[]
 
   @@index([boardId, classId, academicYear, schoolName])
 }
@@ -108,6 +109,8 @@ model Subject {
 
   class    Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
   chapters Chapter[]
+  questions   Question[]
+  assessments Assessment[]
 
   @@unique([classId, code])
 }
@@ -124,6 +127,8 @@ model Chapter {
   subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   materials StudyMaterial[]
   views     ChapterView[]
+  questions   Question[]
+  assessments Assessment[]
 
   @@index([subjectId])
 }
@@ -230,4 +235,174 @@ model GroupPost {
   author User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([groupId])
+}
+
+// ---------------------------------------------------------------------------
+// Assessment engine (Phase 1): questions, assessments, attempts, grading.
+// All content is DB-driven. Objective questions auto-grade deterministically;
+// subjective questions are queued for review (AI grading added in Phase 2).
+// ---------------------------------------------------------------------------
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  NUMERIC
+  SHORT
+  LONG
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ContentSource {
+  MANUAL
+  AI
+  UPLOAD
+}
+
+enum PublishStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Question {
+  id               String        @id @default(cuid())
+  subjectId        String
+  chapterId        String?       // null = whole-subject (e.g. board exam)
+  type             QuestionType
+  difficulty       Difficulty    @default(MEDIUM)
+  marks            Int           @default(1)
+  prompt           String
+  explanation      String?
+  modelAnswer      String?       // reference answer for SHORT/LONG
+  rubric           String?
+  numericAnswer    Float?
+  numericTolerance Float?        @default(0)
+  source           ContentSource @default(MANUAL)
+  status           PublishStatus @default(PUBLISHED)
+  createdById      String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  subject Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  chapter Chapter?         @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  options QuestionOption[]
+  items   AssessmentQuestion[]
+  answers AttemptAnswer[]
+
+  @@index([subjectId, chapterId, status])
+}
+
+model QuestionOption {
+  id         String  @id @default(cuid())
+  questionId String
+  text       String
+  isCorrect  Boolean @default(false)
+  order      Int     @default(0)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+enum AssessmentType {
+  DAILY
+  QUIZ
+  ASSIGNMENT
+  EXAM
+}
+
+model Assessment {
+  id           String         @id @default(cuid())
+  type         AssessmentType
+  subjectId    String
+  chapterId    String?        // null = whole subject
+  title        String
+  description  String?
+  timeLimitSec Int?
+  totalMarks   Int            @default(0)
+  scheduledFor DateTime?
+  dueAt        DateTime?
+  status       PublishStatus  @default(DRAFT)
+  resultsPublished Boolean    @default(false)
+  createdById  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  subject   Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  chapter   Chapter?             @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  questions AssessmentQuestion[]
+  attempts  Attempt[]
+
+  @@index([subjectId, type, status])
+}
+
+model AssessmentQuestion {
+  id           String @id @default(cuid())
+  assessmentId String
+  questionId   String
+  order        Int    @default(0)
+  marks        Int    @default(1)
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, questionId])
+  @@index([assessmentId])
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+  NEEDS_REVIEW
+}
+
+enum GradedBy {
+  AUTO
+  AI
+  TEACHER
+}
+
+model Attempt {
+  id           String        @id @default(cuid())
+  assessmentId String
+  studentId    String
+  status       AttemptStatus @default(IN_PROGRESS)
+  score        Float?
+  maxScore     Float?
+  startedAt    DateTime      @default(now())
+  submittedAt  DateTime?
+  gradedAt     DateTime?
+
+  assessment Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  student    User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers    AttemptAnswer[]
+
+  @@unique([assessmentId, studentId])
+  @@index([studentId])
+}
+
+model AttemptAnswer {
+  id                String   @id @default(cuid())
+  attemptId         String
+  questionId        String
+  selectedOptionIds String[]
+  textAnswer        String?
+  numericAnswer     Float?
+  awardedMarks      Float    @default(0)
+  isCorrect         Boolean?
+  gradedBy          GradedBy?
+  confidence        Float?
+  feedback          String?
+
+  attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([questionId])
 }

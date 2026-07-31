@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMe } from '@/lib/client/useAuth';
 import Header from '@/components/Header';
-import CatalogManager from './CatalogManager';
+import AssessmentManager from './AssessmentManager';
 
-export default function AdminPage() {
+export default function AdminAssessmentsPage() {
   const { user, loading } = useMe();
   const router = useRouter();
 
@@ -22,19 +22,19 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen">
-      <Header user={user} subtitle="Content Management" />
+      <Header user={user} subtitle="Assessments" />
       <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Content catalog</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Assessments</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Build the study catalog: add a board, then drill in to add classes, subjects,
-              chapters and upload NCERT materials. Students see content for their own class.
+              Build a question bank per subject/chapter, then assemble quizzes, assignments,
+              daily activities and board exams. Objective questions auto-grade instantly.
             </p>
           </div>
-          <Link href="/admin/assessments" className="btn shrink-0">Assessments →</Link>
+          <Link href="/admin" className="btn-ghost shrink-0">← Catalog</Link>
         </div>
-        <CatalogManager />
+        <AssessmentManager />
       </main>
     </div>
   );
