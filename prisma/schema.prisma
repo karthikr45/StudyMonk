@@ -524,6 +524,9 @@ model AttemptAnswer {
 enum NotificationType {
   MENTION
   REPLY
+  FILE
+  CARD
+  POLL
 }
 
 model Notification {
@@ -533,6 +536,7 @@ model Notification {
   actorName String
   groupId   String?
   groupName String?
+  tab       String? // target section within the group (chat/files/cards/polls)
   excerpt   String?
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
@@ -540,4 +544,5 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read])
+  @@index([userId, groupId, read])
 }

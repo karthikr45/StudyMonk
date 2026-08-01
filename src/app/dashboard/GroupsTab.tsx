@@ -10,7 +10,7 @@ interface Group {
   isMember: boolean; myRole: string | null; createdBy: { id: string; fullName: string };
 }
 
-export default function GroupsTab({ meId, initialGroupId }: { meId: string; initialGroupId?: string | null }) {
+export default function GroupsTab({ meId, initialGroupId, initialTab }: { meId: string; initialGroupId?: string | null; initialTab?: string | null }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [scope, setScope] = useState<{ schoolDisplay: string; academicYear: string } | null>(null);
   const [name, setName] = useState('');
@@ -103,7 +103,7 @@ export default function GroupsTab({ meId, initialGroupId }: { meId: string; init
       </div>
 
       {open
-        ? <GroupWorkspace group={open} meId={meId} onErr={onErr} />
+        ? <GroupWorkspace group={open} meId={meId} initialTab={initialTab} onErr={onErr} />
         : (
           <div className="card grid place-items-center py-16 text-center">
             <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-400"><IconChat width={22} height={22} /></span>

@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ok, handleError } from '@/lib/http';
-import { requireGroupMember } from '@/lib/groups';
+import { requireGroupMember, notifyGroupMembers } from '@/lib/groups';
 import { groupResourceSchema } from '@/lib/validation';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -25,12 +25,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { auth } = await requireGroupMember(req, params.id);
+    const { auth, group } = await requireGroupMember(req, params.id);
     const body = groupResourceSchema.parse(await req.json());
     const resource = await prisma.groupResource.create({
       data: { groupId: params.id, uploaderId: auth.id, ...body },
       select: { id: true, title: true, fileName: true, fileSize: true, createdAt: true },
     });
+    await notifyGroupMembers({ groupId: params.id, groupName: group.name, actorId: auth.id, type: 'FILE', tab: 'files', excerpt: body.title });
     return ok({ resource }, 201);
   } catch (err) {
     return handleError(err);

@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ok, handleError } from '@/lib/http';
-import { requireGroupMember } from '@/lib/groups';
+import { requireGroupMember, notifyGroupMembers } from '@/lib/groups';
 import { cardSetSchema } from '@/lib/validation';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { auth } = await requireGroupMember(req, params.id);
+    const { auth, group } = await requireGroupMember(req, params.id);
     const body = cardSetSchema.parse(await req.json());
     const set = await prisma.groupCardSet.create({
       data: {
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
       include: { cards: { orderBy: { order: 'asc' } } },
     });
+    await notifyGroupMembers({ groupId: params.id, groupName: group.name, actorId: auth.id, type: 'CARD', tab: 'cards', excerpt: body.title });
     return ok({ set }, 201);
   } catch (err) {
     return handleError(err);

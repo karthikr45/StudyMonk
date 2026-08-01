@@ -15,6 +15,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [tab, setTab] = useState<'study' | 'assess' | 'progress' | 'groups'>('study');
   const [deepGroup, setDeepGroup] = useState<string | null>(null);
+  const [deepTab, setDeepTab] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -27,6 +28,7 @@ export default function Dashboard() {
     const t = sp.get('tab');
     if (t === 'groups' || t === 'assess' || t === 'progress' || t === 'study') setTab(t);
     setDeepGroup(sp.get('group'));
+    setDeepTab(sp.get('gtab'));
   }, []);
 
   if (loading || !user) {
@@ -67,7 +69,7 @@ export default function Dashboard() {
         {tab === 'study' && <StudyTab user={user} />}
         {tab === 'assess' && <AssessmentsTab />}
         {tab === 'progress' && <ProgressTab />}
-        {tab === 'groups' && <GroupsTab meId={user.id} initialGroupId={deepGroup} />}
+        {tab === 'groups' && <GroupsTab meId={user.id} initialGroupId={deepGroup} initialTab={deepTab} />}
       </main>
     </div>
   );

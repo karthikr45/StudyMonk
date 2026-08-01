@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ok, fail, handleError } from '@/lib/http';
-import { requireGroupMember } from '@/lib/groups';
+import { requireGroupMember, notifyGroupMembers } from '@/lib/groups';
 import { groupPollSchema } from '@/lib/validation';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { auth } = await requireGroupMember(req, params.id);
+    const { auth, group } = await requireGroupMember(req, params.id);
     const body = groupPollSchema.parse(await req.json());
     if (body.type === 'QUIZ' && !body.options.some((o) => o.isCorrect)) {
       return fail('Mark the correct option for a quiz', 422, 'NO_CORRECT');
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
       include: { options: true },
     });
+    await notifyGroupMembers({ groupId: params.id, groupName: group.name, actorId: auth.id, type: body.type === 'QUIZ' ? 'POLL' : 'POLL', tab: 'polls', excerpt: body.question });
     return ok({ poll }, 201);
   } catch (err) {
     return handleError(err);

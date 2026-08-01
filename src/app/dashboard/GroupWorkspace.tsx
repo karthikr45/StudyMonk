@@ -8,14 +8,35 @@ interface Member { role: string; user: { id: string; fullName: string } }
 interface Post { id: string; body: string; createdAt: string; editedAt: string | null; parentId: string | null; mentionIds: string[]; author: { id: string; fullName: string } }
 interface Classmate { id: string; fullName: string; email: string }
 
-export default function GroupWorkspace({ group, meId, onErr }: {
-  group: { id: string; name: string; myRole: string | null }; meId: string; onErr: (e: unknown) => void;
+type TabKey = 'chat' | 'files' | 'cards' | 'polls' | 'rank';
+const TAB_KEYS: TabKey[] = ['chat', 'files', 'cards', 'polls', 'rank'];
+
+export default function GroupWorkspace({ group, meId, initialTab, onErr }: {
+  group: { id: string; name: string; myRole: string | null }; meId: string; initialTab?: string | null; onErr: (e: unknown) => void;
 }) {
-  const [tab, setTab] = useState<'chat' | 'files' | 'cards' | 'polls' | 'rank'>('chat');
+  const [tab, setTab] = useState<TabKey>(
+    initialTab && (TAB_KEYS as string[]).includes(initialTab) ? (initialTab as TabKey) : 'chat',
+  );
   const [members, setMembers] = useState<Member[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [tick, setTick] = useState(0);
+  const [unread, setUnread] = useState<Record<string, number>>({});
   const isOwner = group.myRole === 'OWNER';
+
+  // Poll per-section unread counts; auto-mark the section you're viewing seen.
+  useEffect(() => {
+    api.get<{ byTab: Record<string, number> }>(`/api/groups/${group.id}/unread`).then((d) => {
+      const bt = { ...(d.byTab || {}) };
+      if (bt[tab]) api.post(`/api/groups/${group.id}/seen`, { tab }).catch(() => {});
+      bt[tab] = 0;
+      setUnread(bt);
+    }).catch(() => {});
+  }, [group.id, tick, tab]);
+
+  function openTab(k: TabKey) {
+    setTab(k);
+    setUnread((u) => ({ ...u, [k]: 0 }));
+  }
 
   async function loadDetail() {
     const d = await api.get<{ members: Member[]; posts: Post[] }>(`/api/groups/${group.id}`);
@@ -44,16 +65,19 @@ export default function GroupWorkspace({ group, meId, onErr }: {
 
       <div className="mb-3 inline-flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         {tabs.map((t) => (
-          <button key={t.k} onClick={() => setTab(t.k)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${tab === t.k ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-white'}`}>
+          <button key={t.k} onClick={() => openTab(t.k)}
+            className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${tab === t.k ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-white'}`}>
             <t.icon width={14} height={14} />{t.label}
+            {unread[t.k] > 0 && tab !== t.k && (
+              <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{unread[t.k] > 9 ? '9+' : unread[t.k]}</span>
+            )}
           </button>
         ))}
       </div>
 
       {tab === 'chat' && <Chat groupId={group.id} meId={meId} members={members} posts={posts} reload={loadDetail} onErr={onErr} />}
-      {tab === 'files' && <Files groupId={group.id} onErr={onErr} />}
-      {tab === 'cards' && <Cards groupId={group.id} meId={meId} onErr={onErr} />}
+      {tab === 'files' && <Files groupId={group.id} tick={tick} onErr={onErr} />}
+      {tab === 'cards' && <Cards groupId={group.id} meId={meId} tick={tick} onErr={onErr} />}
       {tab === 'polls' && <Polls groupId={group.id} tick={tick} onErr={onErr} />}
       {tab === 'rank' && <Rank groupId={group.id} onErr={onErr} />}
     </div>
@@ -195,14 +219,14 @@ function Chat({ groupId, meId, members, posts, reload, onErr }: {
 }
 
 /* --------------------------------- Files ---------------------------------- */
-function Files({ groupId, onErr }: { groupId: string; onErr: (e: unknown) => void }) {
+function Files({ groupId, tick, onErr }: { groupId: string; tick: number; onErr: (e: unknown) => void }) {
   interface R { id: string; title: string; fileName: string; fileSize: number; uploader: { fullName: string } }
   const [items, setItems] = useState<R[]>([]);
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   async function load() { const d = await api.get<{ resources: R[] }>(`/api/groups/${groupId}/resources`); setItems(d.resources); }
-  useEffect(() => { load().catch(onErr); /* eslint-disable-next-line */ }, [groupId]);
+  useEffect(() => { load().catch(() => {}); /* eslint-disable-next-line */ }, [groupId, tick]);
   async function upload(e: React.FormEvent) {
     e.preventDefault(); if (!file) return; setBusy(true);
     try {
@@ -236,14 +260,14 @@ function Files({ groupId, onErr }: { groupId: string; onErr: (e: unknown) => voi
 }
 
 /* --------------------------------- Cards ---------------------------------- */
-function Cards({ groupId, meId, onErr }: { groupId: string; meId: string; onErr: (e: unknown) => void }) {
+function Cards({ groupId, meId, tick, onErr }: { groupId: string; meId: string; tick: number; onErr: (e: unknown) => void }) {
   interface Set { id: string; title: string; createdById: string; createdBy: { fullName: string }; cards: { id: string; front: string; back: string }[] }
   const [sets, setSets] = useState<Set[]>([]);
   const [title, setTitle] = useState('');
   const [cards, setCards] = useState([{ front: '', back: '' }]);
   const [flip, setFlip] = useState<Record<string, boolean>>({});
   async function load() { const d = await api.get<{ sets: Set[] }>(`/api/groups/${groupId}/cards`); setSets(d.sets); }
-  useEffect(() => { load().catch(onErr); /* eslint-disable-next-line */ }, [groupId]);
+  useEffect(() => { load().catch(() => {}); /* eslint-disable-next-line */ }, [groupId, tick]);
   async function create(e: React.FormEvent) {
     e.preventDefault();
     const valid = cards.filter((c) => c.front.trim() && c.back.trim());

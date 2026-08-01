@@ -42,6 +42,39 @@ export async function requireGroupMember(req: NextRequest, groupId: string) {
   return { auth, group };
 }
 
+/**
+ * Notify every group member except the actor that something new happened in a
+ * section (file shared, deck created, poll posted, …). Best-effort.
+ */
+export async function notifyGroupMembers(opts: {
+  groupId: string;
+  groupName: string;
+  actorId: string;
+  type: 'FILE' | 'CARD' | 'POLL' | 'MENTION' | 'REPLY';
+  tab: string;
+  excerpt?: string;
+}) {
+  const [members, actor] = await Promise.all([
+    prisma.groupMember.findMany({
+      where: { groupId: opts.groupId, userId: { not: opts.actorId } },
+      select: { userId: true },
+    }),
+    prisma.user.findUnique({ where: { id: opts.actorId }, select: { fullName: true } }),
+  ]);
+  if (members.length === 0) return;
+  await prisma.notification.createMany({
+    data: members.map((m) => ({
+      userId: m.userId,
+      type: opts.type,
+      actorName: actor?.fullName ?? 'A classmate',
+      groupId: opts.groupId,
+      groupName: opts.groupName,
+      tab: opts.tab,
+      excerpt: opts.excerpt,
+    })),
+  });
+}
+
 /** Require the caller to be an OWNER of the group. */
 export async function requireOwner(groupId: string, userId: string) {
   const member = await requireMembership(groupId, userId);

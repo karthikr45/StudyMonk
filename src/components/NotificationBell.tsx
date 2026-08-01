@@ -6,9 +6,14 @@ import { api } from '@/lib/client/api';
 import { IconBell } from './icons';
 
 interface Note {
-  id: string; type: string; actorName: string; groupId: string | null; groupName: string | null; excerpt: string | null;
-  read: boolean; createdAt: string;
+  id: string; type: string; actorName: string; groupId: string | null; groupName: string | null;
+  tab: string | null; excerpt: string | null; read: boolean; createdAt: string;
 }
+
+const verb: Record<string, string> = {
+  MENTION: 'mentioned you', REPLY: 'replied to you',
+  FILE: 'shared a file', CARD: 'shared a card deck', POLL: 'posted a poll',
+};
 
 export default function NotificationBell() {
   const router = useRouter();
@@ -19,7 +24,7 @@ export default function NotificationBell() {
 
   function goto(n: Note) {
     setOpen(false);
-    if (n.groupId) router.push(`/dashboard?tab=groups&group=${n.groupId}`);
+    if (n.groupId) router.push(`/dashboard?tab=groups&group=${n.groupId}${n.tab ? `&gtab=${n.tab}` : ''}`);
   }
 
   async function load() {
@@ -69,7 +74,7 @@ export default function NotificationBell() {
             {notes.map((n) => (
               <li key={n.id} onClick={() => goto(n)} className={`cursor-pointer px-4 py-2.5 text-sm hover:bg-slate-50 ${n.read ? '' : 'bg-brand-50/50'}`}>
                 <p className="text-slate-800">
-                  <b>{n.actorName}</b> {n.type === 'MENTION' ? 'mentioned you' : 'replied to you'}
+                  <b>{n.actorName}</b> {verb[n.type] ?? 'sent an update'}
                   {n.groupName && <> in <b>{n.groupName}</b></>}
                 </p>
                 {n.excerpt && <p className="mt-0.5 truncate text-xs text-slate-500">“{n.excerpt}”</p>}

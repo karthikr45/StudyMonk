@@ -49,7 +49,7 @@ export async function POST(
     if (recipients.size > 0) {
       await prisma.notification.createMany({
         data: [...recipients].map(([userId, type]) => ({
-          userId, type, actorName: post.author.fullName, groupId: params.id, groupName: group.name, excerpt,
+          userId, type, tab: 'chat', actorName: post.author.fullName, groupId: params.id, groupName: group.name, excerpt,
         })),
       });
     }
