@@ -1,17 +1,11 @@
 'use client';
 
-import { logout, MeUser } from '@/lib/client/useAuth';
-import { IconLogo, IconLogout } from './icons';
+import { MeUser } from '@/lib/client/useAuth';
+import { IconLogo } from './icons';
 import NotificationBell from './NotificationBell';
+import UserMenu from './UserMenu';
 
 export default function Header({ user, subtitle }: { user: MeUser; subtitle?: string }) {
-  const initials = user.fullName
-    .split(' ')
-    .map((s) => s[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl">
       <div className="h-0.5 w-full bg-brand-gradient" />
@@ -26,24 +20,9 @@ export default function Header({ user, subtitle }: { user: MeUser; subtitle?: st
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <NotificationBell />
-          <span className="pill-brand hidden sm:inline-flex">
-            {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Student'}
-          </span>
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-gradient text-xs font-bold text-white shadow-sm ring-2 ring-white">
-              {initials}
-            </span>
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold leading-tight text-slate-800">{user.fullName}</p>
-              <p className="text-xs text-slate-500">{user.email}</p>
-            </div>
-          </div>
-          <button className="btn-ghost btn-sm" onClick={() => logout()}>
-            <IconLogout width={15} height={15} />
-            <span className="hidden sm:inline">Sign out</span>
-          </button>
+          <UserMenu user={user} />
         </div>
       </div>
     </header>
