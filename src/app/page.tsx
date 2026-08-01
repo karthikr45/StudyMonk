@@ -52,8 +52,11 @@ export default function Home() {
 
   return (
     <main className="relative min-h-screen overflow-hidden">
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-brand-100 blur-3xl" />
-      <div className="pointer-events-none absolute right-0 top-56 h-80 w-80 rounded-full bg-indigo-50 blur-3xl" />
+      {/* animated atmosphere */}
+      <div className="orb -top-40 left-1/2 h-[34rem] w-[34rem] -translate-x-1/2 animate-float bg-brand-200/50" />
+      <div className="orb right-[-6rem] top-40 h-96 w-96 animate-float bg-violet-500/15" style={{ animationDelay: '1.5s' }} />
+      <div className="orb left-[-6rem] top-72 h-80 w-80 animate-float bg-indigo-300/25" style={{ animationDelay: '3s' }} />
+      <div className="pointer-events-none absolute inset-0 hero-grid" />
 
       {/* Nav */}
       <nav className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
@@ -68,18 +71,18 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section className="relative mx-auto max-w-3xl px-6 pb-6 pt-16 text-center animate-fade-up">
-        <span className="pill-brand mb-5">✨ CBSE · After-school learning</span>
-        <h1 className="font-display text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900 sm:text-6xl">
-          Study your NCERT content,<br className="hidden sm:block" /> <span className="text-gradient">together.</span>
+      <section className="relative mx-auto max-w-3xl px-6 pb-6 pt-16 text-center">
+        <span className="pill-brand mb-5 animate-fade-up">✨ CBSE · After-school learning</span>
+        <h1 className="animate-fade-up font-display text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900 sm:text-6xl" style={{ animationDelay: '80ms' }}>
+          Study your NCERT content,<br className="hidden sm:block" /> <span className="text-gradient-animated">together.</span>
         </h1>
-        <p className="mx-auto mt-5 max-w-xl text-lg text-slate-600">
+        <p className="mx-auto mt-5 max-w-xl animate-fade-up text-lg text-slate-600" style={{ animationDelay: '160ms' }}>
           Read your class content after school and learn as a group with classmates
-          from your own school. Explore what&apos;s available below.
+          from your own school. Everything below is live from your school&apos;s catalog.
         </p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/register" className="btn w-full sm:w-auto">Create student account</Link>
-          <Link href="/login" className="btn-ghost w-full sm:w-auto">I already have an account</Link>
+        <div className="mt-8 flex animate-fade-up flex-col items-center justify-center gap-3 sm:flex-row" style={{ animationDelay: '240ms' }}>
+          <Link href="/register" className="btn w-full px-6 py-3 text-base sm:w-auto">Create student account</Link>
+          <Link href="/login" className="btn-ghost w-full px-6 py-3 text-base sm:w-auto">I already have an account</Link>
         </div>
       </section>
 
