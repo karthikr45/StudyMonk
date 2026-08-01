@@ -60,7 +60,7 @@ export default function Dashboard() {
         <div className="mb-6 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-card">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${tab === t.key ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${tab === t.key ? 'bg-brand-gradient text-white shadow-lift' : 'text-slate-600 hover:bg-slate-50'}`}>
               <t.icon width={16} height={16} />{t.label}
             </button>
           ))}

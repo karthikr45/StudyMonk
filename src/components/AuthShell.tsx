@@ -21,10 +21,10 @@ export default function AuthShell({
       <div className="pointer-events-none absolute -top-24 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-brand-100 blur-3xl" />
       <div className={`relative w-full ${wide ? 'max-w-lg' : 'max-w-md'} animate-fade-in`}>
         <Link href="/" className="mb-6 flex items-center justify-center gap-2">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white shadow-lift">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-lift transition-transform duration-200 hover:scale-105">
             <IconLogo />
           </span>
-          <span className="text-xl font-bold text-slate-900">StudyMonk</span>
+          <span className="font-display text-xl font-bold text-slate-900">StudyMonk</span>
         </Link>
         <div className="card sm:p-6">
           <h1 className="text-xl font-bold text-slate-900">{title}</h1>

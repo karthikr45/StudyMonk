@@ -58,7 +58,7 @@ export default function Home() {
       {/* Nav */}
       <nav className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-lift"><IconLogo /></span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-lift"><IconLogo /></span>
           <span className="text-lg font-bold text-slate-900">StudyMonk</span>
         </div>
         <div className="flex items-center gap-2">
@@ -68,12 +68,12 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section className="relative mx-auto max-w-3xl px-6 pb-6 pt-14 text-center animate-fade-in">
-        <span className="pill-brand mb-5">CBSE · After-school learning</span>
-        <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-          Study your NCERT content,<br className="hidden sm:block" /> together.
+      <section className="relative mx-auto max-w-3xl px-6 pb-6 pt-16 text-center animate-fade-up">
+        <span className="pill-brand mb-5">✨ CBSE · After-school learning</span>
+        <h1 className="font-display text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900 sm:text-6xl">
+          Study your NCERT content,<br className="hidden sm:block" /> <span className="text-gradient">together.</span>
         </h1>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
+        <p className="mx-auto mt-5 max-w-xl text-lg text-slate-600">
           Read your class content after school and learn as a group with classmates
           from your own school. Explore what&apos;s available below.
         </p>

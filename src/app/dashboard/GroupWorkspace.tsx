@@ -66,7 +66,7 @@ export default function GroupWorkspace({ group, meId, initialTab, onErr }: {
       <div className="mb-3 inline-flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
         {tabs.map((t) => (
           <button key={t.k} onClick={() => openTab(t.k)}
-            className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${tab === t.k ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-white'}`}>
+            className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${tab === t.k ? 'bg-brand-gradient text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}>
             <t.icon width={14} height={14} />{t.label}
             {unread[t.k] > 0 && tab !== t.k && (
               <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{unread[t.k] > 9 ? '9+' : unread[t.k]}</span>
