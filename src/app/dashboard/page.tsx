@@ -7,12 +7,13 @@ import Header from '@/components/Header';
 import StudyTab from './StudyTab';
 import GroupsTab from './GroupsTab';
 import AssessmentsTab from './AssessmentsTab';
-import { IconBook, IconUsers, IconFile } from '@/components/icons';
+import ProgressTab from './ProgressTab';
+import { IconBook, IconUsers, IconFile, IconShield } from '@/components/icons';
 
 export default function Dashboard() {
   const { user, loading } = useMe();
   const router = useRouter();
-  const [tab, setTab] = useState<'study' | 'assess' | 'groups'>('study');
+  const [tab, setTab] = useState<'study' | 'assess' | 'progress' | 'groups'>('study');
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const tabs = [
     { key: 'study' as const, label: 'Study', icon: IconBook },
     { key: 'assess' as const, label: 'Assessments', icon: IconFile },
+    { key: 'progress' as const, label: 'Progress', icon: IconShield },
     { key: 'groups' as const, label: 'Study groups', icon: IconUsers },
   ];
 
@@ -55,6 +57,7 @@ export default function Dashboard() {
 
         {tab === 'study' && <StudyTab user={user} />}
         {tab === 'assess' && <AssessmentsTab />}
+        {tab === 'progress' && <ProgressTab />}
         {tab === 'groups' && <GroupsTab meId={user.id} />}
       </main>
     </div>
