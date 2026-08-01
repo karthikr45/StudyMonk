@@ -14,11 +14,14 @@ const base = (p: P) => ({
   ...p,
 });
 
+// StudyMonk mark — an open book rising into a meditating figure, topped by a
+// "mind" dot. Original artwork.
 export const IconLogo = (p: P) => (
   <svg {...base(p)}>
-    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v13H6.5A2.5 2.5 0 0 0 4 18.5z" />
-    <path d="M4 18.5A2.5 2.5 0 0 0 6.5 21H20" />
-    <path d="M9 7.5h7M9 11h5" />
+    <circle cx="12" cy="4.4" r="1.75" fill="currentColor" stroke="none" />
+    <path d="M12 9.3C10 7.9 7.7 7.8 5.6 8.8c-.35.16-.6.52-.6.92V17c0 .53.54.88 1 .64 1.98-.94 3.98-.78 6 .66" />
+    <path d="M12 9.3c2-1.4 4.3-1.5 6.4-.5.35.16.6.52.6.92V17c0 .53-.54.88-1 .64-1.98-.94-3.98-.78-6 .66" />
+    <path d="M12 9.3V19" />
   </svg>
 );
 export const IconBook = (p: P) => (
