@@ -1,4 +1,4 @@
-import { IconLogo } from './icons';
+import BrandMark from './BrandMark';
 import PoweredByLogo from './PoweredByLogo';
 
 export default function Footer() {
@@ -7,9 +7,7 @@ export default function Footer() {
     <footer className="mt-auto border-t border-slate-200/70 bg-white/70 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-6 sm:flex-row">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
-            <IconLogo width={16} height={16} />
-          </span>
+          <BrandMark size={32} className="!rounded-lg" />
           <span className="text-sm text-slate-500">
             © {year} <span className="font-semibold text-slate-700">StudyMonk</span>. All rights reserved.
           </span>

@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMe } from '@/lib/client/useAuth';
 import { api } from '@/lib/client/api';
-import { IconLogo, IconBook, IconUsers, IconShield, IconChevron, IconFile } from '@/components/icons';
+import { IconBook, IconUsers, IconShield, IconChevron, IconFile } from '@/components/icons';
+import BrandMark from '@/components/BrandMark';
 
 interface BoardCard { id: string; name: string; code: string; classCount: number; subjectCount: number; studentCount: number }
 interface ClassCard { id: string; name: string; level: number; boardName: string; subjectCount: number; studentCount: number }
@@ -54,15 +55,15 @@ export default function Home() {
     <main className="relative min-h-screen overflow-hidden">
       {/* animated atmosphere */}
       <div className="orb -top-40 left-1/2 h-[34rem] w-[34rem] -translate-x-1/2 animate-float bg-brand-200/50" />
-      <div className="orb right-[-6rem] top-40 h-96 w-96 animate-float bg-violet-500/15" style={{ animationDelay: '1.5s' }} />
-      <div className="orb left-[-6rem] top-72 h-80 w-80 animate-float bg-indigo-300/25" style={{ animationDelay: '3s' }} />
+      <div className="orb right-[-6rem] top-40 h-96 w-96 animate-float bg-accent-500/12" style={{ animationDelay: '1.5s' }} />
+      <div className="orb left-[-6rem] top-72 h-80 w-80 animate-float bg-brand-300/30" style={{ animationDelay: '3s' }} />
       <div className="pointer-events-none absolute inset-0 hero-grid" />
 
       {/* Nav */}
       <nav className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-lift"><IconLogo /></span>
-          <span className="text-lg font-bold text-slate-900">StudyMonk</span>
+          <BrandMark size={38} className="shadow-lift" />
+          <span className="font-display text-lg font-bold text-slate-900">Study<span className="text-brand-600">Monk</span></span>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/login" className="btn-ghost btn-sm">Sign in</Link>
