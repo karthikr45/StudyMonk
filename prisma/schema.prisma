@@ -50,6 +50,7 @@ model User {
   groupCardSets  GroupCardSet[]
   groupPolls     GroupPoll[]
   groupPollVotes GroupPollVote[]
+  notifications  Notification[]
 
   @@index([boardId, classId, academicYear, schoolName])
 }
@@ -516,4 +517,27 @@ model AttemptAnswer {
 
   @@unique([attemptId, questionId])
   @@index([questionId])
+}
+
+// In-app notifications (e.g. @mentions and replies in study groups).
+// Actor/group names are denormalized so the bell needs no joins.
+enum NotificationType {
+  MENTION
+  REPLY
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String // recipient
+  type      NotificationType
+  actorName String
+  groupId   String?
+  groupName String?
+  excerpt   String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
 }

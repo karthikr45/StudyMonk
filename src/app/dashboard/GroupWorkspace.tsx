@@ -14,13 +14,16 @@ export default function GroupWorkspace({ group, meId, onErr }: {
   const [tab, setTab] = useState<'chat' | 'files' | 'cards' | 'polls'>('chat');
   const [members, setMembers] = useState<Member[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [tick, setTick] = useState(0);
   const isOwner = group.myRole === 'OWNER';
 
   async function loadDetail() {
     const d = await api.get<{ members: Member[]; posts: Post[] }>(`/api/groups/${group.id}`);
     setMembers(d.members); setPosts(d.posts);
   }
-  useEffect(() => { loadDetail().catch(onErr); /* eslint-disable-next-line */ }, [group.id]);
+  // Live refresh every 5s (near real-time chat, members, polls).
+  useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 5000); return () => clearInterval(t); }, []);
+  useEffect(() => { loadDetail().catch(() => {}); /* eslint-disable-next-line */ }, [group.id, tick]);
 
   const tabs = [
     { k: 'chat' as const, label: 'Chat', icon: IconChat },
@@ -50,7 +53,7 @@ export default function GroupWorkspace({ group, meId, onErr }: {
       {tab === 'chat' && <Chat groupId={group.id} meId={meId} members={members} posts={posts} reload={loadDetail} onErr={onErr} />}
       {tab === 'files' && <Files groupId={group.id} onErr={onErr} />}
       {tab === 'cards' && <Cards groupId={group.id} meId={meId} onErr={onErr} />}
-      {tab === 'polls' && <Polls groupId={group.id} onErr={onErr} />}
+      {tab === 'polls' && <Polls groupId={group.id} tick={tick} onErr={onErr} />}
     </div>
   );
 }
@@ -262,7 +265,7 @@ function Cards({ groupId, meId, onErr }: { groupId: string; meId: string; onErr:
 }
 
 /* --------------------------------- Polls ---------------------------------- */
-function Polls({ groupId, onErr }: { groupId: string; onErr: (e: unknown) => void }) {
+function Polls({ groupId, tick, onErr }: { groupId: string; tick: number; onErr: (e: unknown) => void }) {
   interface Opt { id: string; text: string; votes: number; isCorrect?: boolean }
   interface P { id: string; type: string; question: string; totalVotes: number; myVote: string | null; createdBy: { fullName: string }; options: Opt[] }
   const [polls, setPolls] = useState<P[]>([]);
@@ -270,7 +273,7 @@ function Polls({ groupId, onErr }: { groupId: string; onErr: (e: unknown) => voi
   const [question, setQuestion] = useState('');
   const [opts, setOpts] = useState([{ text: '', isCorrect: false }, { text: '', isCorrect: false }]);
   async function load() { const d = await api.get<{ polls: P[] }>(`/api/groups/${groupId}/polls`); setPolls(d.polls); }
-  useEffect(() => { load().catch(onErr); /* eslint-disable-next-line */ }, [groupId]);
+  useEffect(() => { load().catch(() => {}); /* eslint-disable-next-line */ }, [groupId, tick]);
   async function create(e: React.FormEvent) {
     e.preventDefault();
     const valid = opts.filter((o) => o.text.trim());

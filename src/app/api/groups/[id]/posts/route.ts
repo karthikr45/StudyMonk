@@ -12,12 +12,14 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   try {
-    const { auth } = await requireGroupMember(req, params.id);
+    const { auth, group } = await requireGroupMember(req, params.id);
     const body = postSchema.parse(await req.json());
 
+    let parentAuthorId: string | null = null;
     if (body.parentId) {
       const parent = await prisma.groupPost.findFirst({ where: { id: body.parentId, groupId: params.id } });
       if (!parent) return fail('Reply target not found', 422, 'PARENT_INVALID');
+      parentAuthorId = parent.authorId;
     }
     // Only real members can be tagged.
     let mentionIds: string[] = [];
@@ -36,6 +38,22 @@ export async function POST(
         author: { select: { id: true, fullName: true } },
       },
     });
+
+    // Notify mentioned members and (if a reply) the parent author.
+    const excerpt = body.body.slice(0, 120);
+    const recipients = new Map<string, 'MENTION' | 'REPLY'>();
+    for (const uid of mentionIds) if (uid !== auth.id) recipients.set(uid, 'MENTION');
+    if (parentAuthorId && parentAuthorId !== auth.id && !recipients.has(parentAuthorId)) {
+      recipients.set(parentAuthorId, 'REPLY');
+    }
+    if (recipients.size > 0) {
+      await prisma.notification.createMany({
+        data: [...recipients].map(([userId, type]) => ({
+          userId, type, actorName: post.author.fullName, groupId: params.id, groupName: group.name, excerpt,
+        })),
+      });
+    }
+
     return ok({ post }, 201);
   } catch (err) {
     return handleError(err);

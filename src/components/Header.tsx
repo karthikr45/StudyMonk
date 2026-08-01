@@ -2,6 +2,7 @@
 
 import { logout, MeUser } from '@/lib/client/useAuth';
 import { IconLogo, IconLogout } from './icons';
+import NotificationBell from './NotificationBell';
 
 export default function Header({ user, subtitle }: { user: MeUser; subtitle?: string }) {
   const initials = user.fullName
@@ -25,6 +26,7 @@ export default function Header({ user, subtitle }: { user: MeUser; subtitle?: st
         </div>
 
         <div className="flex items-center gap-3">
+          <NotificationBell />
           <span className="pill-brand hidden sm:inline-flex">
             {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Student'}
           </span>
