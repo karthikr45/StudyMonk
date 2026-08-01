@@ -47,11 +47,16 @@ export async function POST(
       recipients.set(parentAuthorId, 'REPLY');
     }
     if (recipients.size > 0) {
-      await prisma.notification.createMany({
-        data: [...recipients].map(([userId, type]) => ({
-          userId, type, tab: 'chat', actorName: post.author.fullName, groupId: params.id, groupName: group.name, excerpt,
-        })),
-      });
+      // Best-effort — never let a notification write fail the message.
+      try {
+        await prisma.notification.createMany({
+          data: [...recipients].map(([userId, type]) => ({
+            userId, type, tab: 'chat', actorName: post.author.fullName, groupId: params.id, groupName: group.name, excerpt,
+          })),
+        });
+      } catch (e) {
+        console.error('mention/reply notification failed (non-fatal)', e);
+      }
     }
 
     return ok({ post }, 201);

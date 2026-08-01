@@ -59,7 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
       include: { options: true },
     });
-    await notifyGroupMembers({ groupId: params.id, groupName: group.name, actorId: auth.id, type: body.type === 'QUIZ' ? 'POLL' : 'POLL', tab: 'polls', excerpt: body.question });
+    await notifyGroupMembers({ groupId: params.id, groupName: group.name, actorId: auth.id, type: 'POLL', tab: 'polls', excerpt: body.question });
     return ok({ poll }, 201);
   } catch (err) {
     return handleError(err);

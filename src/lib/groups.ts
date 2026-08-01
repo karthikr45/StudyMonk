@@ -54,25 +54,31 @@ export async function notifyGroupMembers(opts: {
   tab: string;
   excerpt?: string;
 }) {
-  const [members, actor] = await Promise.all([
-    prisma.groupMember.findMany({
-      where: { groupId: opts.groupId, userId: { not: opts.actorId } },
-      select: { userId: true },
-    }),
-    prisma.user.findUnique({ where: { id: opts.actorId }, select: { fullName: true } }),
-  ]);
-  if (members.length === 0) return;
-  await prisma.notification.createMany({
-    data: members.map((m) => ({
-      userId: m.userId,
-      type: opts.type,
-      actorName: actor?.fullName ?? 'A classmate',
-      groupId: opts.groupId,
-      groupName: opts.groupName,
-      tab: opts.tab,
-      excerpt: opts.excerpt,
-    })),
-  });
+  // Best-effort: a notification failure must NEVER block the underlying action
+  // (sharing a file, posting a poll, etc.).
+  try {
+    const [members, actor] = await Promise.all([
+      prisma.groupMember.findMany({
+        where: { groupId: opts.groupId, userId: { not: opts.actorId } },
+        select: { userId: true },
+      }),
+      prisma.user.findUnique({ where: { id: opts.actorId }, select: { fullName: true } }),
+    ]);
+    if (members.length === 0) return;
+    await prisma.notification.createMany({
+      data: members.map((m) => ({
+        userId: m.userId,
+        type: opts.type,
+        actorName: actor?.fullName ?? 'A classmate',
+        groupId: opts.groupId,
+        groupName: opts.groupName,
+        tab: opts.tab,
+        excerpt: opts.excerpt,
+      })),
+    });
+  } catch (e) {
+    console.error('notifyGroupMembers failed (non-fatal)', e);
+  }
 }
 
 /** Require the caller to be an OWNER of the group. */
