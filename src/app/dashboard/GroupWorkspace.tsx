@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/client/api';
-import { IconChat, IconFile, IconBook, IconUsers, IconPlus, IconDownload, IconTrash } from '@/components/icons';
+import { IconChat, IconFile, IconBook, IconUsers, IconPlus, IconDownload, IconTrash, IconShield } from '@/components/icons';
 
 interface Member { role: string; user: { id: string; fullName: string } }
 interface Post { id: string; body: string; createdAt: string; editedAt: string | null; parentId: string | null; mentionIds: string[]; author: { id: string; fullName: string } }
@@ -11,7 +11,7 @@ interface Classmate { id: string; fullName: string; email: string }
 export default function GroupWorkspace({ group, meId, onErr }: {
   group: { id: string; name: string; myRole: string | null }; meId: string; onErr: (e: unknown) => void;
 }) {
-  const [tab, setTab] = useState<'chat' | 'files' | 'cards' | 'polls'>('chat');
+  const [tab, setTab] = useState<'chat' | 'files' | 'cards' | 'polls' | 'rank'>('chat');
   const [members, setMembers] = useState<Member[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [tick, setTick] = useState(0);
@@ -30,6 +30,7 @@ export default function GroupWorkspace({ group, meId, onErr }: {
     { k: 'files' as const, label: 'Files', icon: IconFile },
     { k: 'cards' as const, label: 'Cards', icon: IconBook },
     { k: 'polls' as const, label: 'Polls', icon: IconUsers },
+    { k: 'rank' as const, label: 'Rank', icon: IconShield },
   ];
 
   return (
@@ -54,6 +55,31 @@ export default function GroupWorkspace({ group, meId, onErr }: {
       {tab === 'files' && <Files groupId={group.id} onErr={onErr} />}
       {tab === 'cards' && <Cards groupId={group.id} meId={meId} onErr={onErr} />}
       {tab === 'polls' && <Polls groupId={group.id} tick={tick} onErr={onErr} />}
+      {tab === 'rank' && <Rank groupId={group.id} onErr={onErr} />}
+    </div>
+  );
+}
+
+/* --------------------------------- Rank ----------------------------------- */
+function Rank({ groupId, onErr }: { groupId: string; onErr: (e: unknown) => void }) {
+  interface R { rank: number; name: string; points: number; avgPercent: number; isMe: boolean }
+  const [rows, setRows] = useState<R[]>([]);
+  useEffect(() => { api.get<{ leaderboard: R[] }>(`/api/groups/${groupId}/leaderboard`).then((d) => setRows(d.leaderboard)).catch(onErr); /* eslint-disable-next-line */ }, [groupId]);
+  return (
+    <div className="flex-1">
+      <p className="mb-2 text-xs text-slate-400">Ranked by total points across graded assessments.</p>
+      <ul className="divide-y divide-slate-100">
+        {rows.length === 0 && <li className="text-sm text-slate-400">No graded assessments yet.</li>}
+        {rows.map((r) => (
+          <li key={r.rank} className={`flex items-center justify-between py-2 ${r.isMe ? 'rounded-lg bg-brand-50 px-2' : ''}`}>
+            <span className="flex items-center gap-3">
+              <span className="w-6 text-center text-sm font-bold tabular-nums text-slate-400">{r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}</span>
+              <span className={`text-sm ${r.isMe ? 'font-semibold text-brand-700' : 'text-slate-700'}`}>{r.name}{r.isMe ? ' (you)' : ''}</span>
+            </span>
+            <span className="flex items-center gap-3 text-sm"><span className="tabular-nums text-slate-400">{r.avgPercent}%</span><span className="font-bold tabular-nums text-slate-800">{r.points} pts</span></span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

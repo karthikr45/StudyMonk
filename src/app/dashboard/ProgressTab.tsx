@@ -31,12 +31,17 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
+interface LbRow { rank: number; name: string; points: number; avgPercent: number; isMe: boolean }
+interface Leaderboard { leaderboard: LbRow[]; me: { rank: number; points: number } | null; totalRanked: number }
+
 export default function ProgressTab() {
   const [d, setD] = useState<Analytics | null>(null);
+  const [lb, setLb] = useState<Leaderboard | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api.get<Analytics>('/api/content/analytics').then(setD).finally(() => setLoading(false));
+    api.get<Leaderboard>('/api/content/leaderboard').then(setLb).catch(() => {});
   }, []);
 
   if (loading) return <p className="text-sm text-slate-500">Loading your progress…</p>;
@@ -106,6 +111,32 @@ export default function ProgressTab() {
           </div>
         </div>
       </div>
+
+      {/* Class leaderboard */}
+      {lb && lb.leaderboard.length > 0 && (
+        <div className="card">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="section-title"><span className="text-brand-500"><IconUsers /></span>Class leaderboard</h3>
+            {lb.me && <span className="pill-brand">You&apos;re #{lb.me.rank} of {lb.totalRanked}</span>}
+          </div>
+          <ul className="divide-y divide-slate-100">
+            {lb.leaderboard.map((r) => (
+              <li key={r.rank} className={`flex items-center justify-between py-2 ${r.isMe ? 'rounded-lg bg-brand-50 px-2' : ''}`}>
+                <span className="flex items-center gap-3">
+                  <span className="w-6 text-center text-sm font-bold tabular-nums text-slate-400">
+                    {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}
+                  </span>
+                  <span className={`text-sm ${r.isMe ? 'font-semibold text-brand-700' : 'text-slate-700'}`}>{r.name}{r.isMe ? ' (you)' : ''}</span>
+                </span>
+                <span className="flex items-center gap-3 text-sm">
+                  <span className="tabular-nums text-slate-400">{r.avgPercent}%</span>
+                  <span className="font-bold tabular-nums text-slate-800">{r.points} pts</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Weak areas */}
       <div className="card">
