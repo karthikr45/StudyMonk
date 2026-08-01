@@ -3,8 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { guard } from '@/lib/auth';
-import { ok, handleError } from '@/lib/http';
-import { z } from 'zod';
+import { ok, fail, handleError } from '@/lib/http';
+import { assessmentEditSchema } from '@/lib/validation';
 
 export async function GET(
   req: NextRequest,
@@ -29,21 +29,48 @@ export async function GET(
   }
 }
 
-const patchSchema = z.object({
-  title: z.string().min(2).max(200).optional(),
-  description: z.string().max(2000).nullable().optional(),
-  timeLimitSec: z.coerce.number().int().min(30).nullable().optional(),
-  status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(), // publish assessment
-  resultsPublished: z.boolean().optional(), // release results to students
-});
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
   try {
     await guard(req, { role: 'SUPER_ADMIN' });
-    const body = patchSchema.parse(await req.json());
+    const { questionIds, ...body } = assessmentEditSchema.parse(await req.json());
+
+    // Changing the question set (or its marks) would invalidate answers already
+    // recorded, so it's only allowed before anyone has attempted the assessment.
+    if (questionIds) {
+      const existing = await prisma.assessment.findUnique({
+        where: { id: params.id },
+        select: { subjectId: true, _count: { select: { attempts: true } } },
+      });
+      if (!existing) return fail('Assessment not found', 404, 'NOT_FOUND');
+      if (existing._count.attempts > 0)
+        return fail('Students have already attempted this — you can still edit the title and time limit, but not the questions.', 409, 'HAS_ATTEMPTS');
+
+      const questions = await prisma.question.findMany({
+        where: { id: { in: questionIds }, subjectId: existing.subjectId, status: 'PUBLISHED' },
+        select: { id: true, marks: true },
+      });
+      if (questions.length === 0) return fail('No valid published questions selected', 422, 'NO_QUESTIONS');
+      const byId = new Map(questions.map((q) => [q.id, q]));
+      const ordered = questionIds.filter((id) => byId.has(id));
+      const totalMarks = ordered.reduce((n, id) => n + (byId.get(id)!.marks ?? 1), 0);
+
+      const assessment = await prisma.$transaction(async (tx) => {
+        await tx.assessmentQuestion.deleteMany({ where: { assessmentId: params.id } });
+        return tx.assessment.update({
+          where: { id: params.id },
+          data: {
+            ...body,
+            totalMarks,
+            questions: { create: ordered.map((id, i) => ({ questionId: id, order: i, marks: byId.get(id)!.marks ?? 1 })) },
+          },
+        });
+      });
+      return ok({ assessment });
+    }
+
     const assessment = await prisma.assessment.update({ where: { id: params.id }, data: body });
     return ok({ assessment });
   } catch (err) {

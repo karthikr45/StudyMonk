@@ -177,6 +177,35 @@ export const questionSchema = z
       ctx.addIssue({ code: 'custom', message: 'Provide the numeric answer', path: ['numericAnswer'] });
   });
 
+// Editing an existing bank question: every field optional (a plain "approve"
+// only sends { status }). Option/answer consistency is only enforced when the
+// caller is actually rewriting the question's content (i.e. sends `type`).
+export const questionEditSchema = z
+  .object({
+    type: questionTypeEnum.optional(),
+    difficulty: difficultyEnum.optional(),
+    marks: z.coerce.number().int().min(1).max(100).optional(),
+    prompt: z.string().min(3).max(4000).optional(),
+    explanation: z.string().max(4000).nullable().optional(),
+    options: z.array(optionSchema).max(8).optional(),
+    modelAnswer: z.string().max(8000).nullable().optional(),
+    rubric: z.string().max(4000).nullable().optional(),
+    numericAnswer: z.coerce.number().nullable().optional(),
+    numericTolerance: z.coerce.number().min(0).optional(),
+    status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.type === 'MCQ' || v.type === 'TRUE_FALSE') {
+      const opts = v.options ?? [];
+      if (opts.length < 2)
+        ctx.addIssue({ code: 'custom', message: 'Add at least 2 options', path: ['options'] });
+      if (!opts.some((o) => o.isCorrect))
+        ctx.addIssue({ code: 'custom', message: 'Mark one option correct', path: ['options'] });
+    }
+    if (v.type === 'NUMERIC' && (v.numericAnswer === undefined || v.numericAnswer === null))
+      ctx.addIssue({ code: 'custom', message: 'Provide the numeric answer', path: ['numericAnswer'] });
+  });
+
 export const assessmentTypeEnum = z.enum(['DAILY', 'QUIZ', 'ASSIGNMENT', 'EXAM']);
 
 export const assessmentSchema = z.object({
@@ -187,6 +216,18 @@ export const assessmentSchema = z.object({
   description: z.string().max(2000).optional(),
   timeLimitSec: z.coerce.number().int().min(30).max(4 * 3600).nullable().optional(),
   questionIds: z.array(z.string().min(1)).min(1, 'Add at least one question').max(100),
+});
+
+// Editing an existing assessment. `questionIds` (replace the question set) is
+// only honoured while no student has attempted it — enforced in the route.
+export const assessmentEditSchema = z.object({
+  type: assessmentTypeEnum.optional(),
+  title: z.string().min(2).max(200).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  timeLimitSec: z.coerce.number().int().min(30).max(4 * 3600).nullable().optional(),
+  status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
+  resultsPublished: z.boolean().optional(),
+  questionIds: z.array(z.string().min(1)).min(1, 'Add at least one question').max(100).optional(),
 });
 
 export const submitAnswersSchema = z.object({

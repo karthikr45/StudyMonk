@@ -7,7 +7,7 @@ import { api, ApiError } from '@/lib/client/api';
 interface Named { id: string; name: string }
 interface Question {
   id: string; type: string; difficulty: string; marks: number; prompt: string;
-  status: string; source: string;
+  status: string; source: string; numericAnswer: number | null; modelAnswer: string | null;
   chapterId: string | null; options: { id: string; text: string; isCorrect: boolean }[];
 }
 interface Assessment {
@@ -17,6 +17,18 @@ interface Assessment {
 
 const TYPES = ['MCQ', 'TRUE_FALSE', 'NUMERIC', 'SHORT', 'LONG'] as const;
 const A_TYPES = ['QUIZ', 'ASSIGNMENT', 'DAILY', 'EXAM'] as const;
+
+// Human labels — makes it obvious that written types exist and MCQ is optional.
+const TYPE_LABELS: Record<string, string> = {
+  MCQ: 'Multiple choice',
+  TRUE_FALSE: 'True / False',
+  NUMERIC: 'Numeric answer',
+  SHORT: 'Short answer (written)',
+  LONG: 'Long answer (written)',
+};
+const A_TYPE_LABELS: Record<string, string> = {
+  QUIZ: 'Quiz', ASSIGNMENT: 'Assignment', DAILY: 'Daily activity', EXAM: 'Board exam',
+};
 
 export default function AssessmentManager() {
   const [boards, setBoards] = useState<Named[]>([]);
@@ -140,6 +152,7 @@ function QuestionBank({ subjectId, chapterId, questions, aiEnabled, onChange, on
   }
   async function approve(id: string) { try { await api.patch(`/api/admin/questions/${id}`, { status: 'PUBLISHED' }); onChange(); } catch (e) { onErr(e); } }
 
+  const [editId, setEditId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
   const [marks, setMarks] = useState('1');
   const [difficulty, setDifficulty] = useState('MEDIUM');
@@ -149,10 +162,36 @@ function QuestionBank({ subjectId, chapterId, questions, aiEnabled, onChange, on
   const [busy, setBusy] = useState(false);
 
   const objective = type === 'MCQ' || type === 'TRUE_FALSE';
+  const written = type === 'SHORT' || type === 'LONG';
 
   function setCorrect(i: number) { setOptions((o) => o.map((x, j) => ({ ...x, isCorrect: j === i }))); }
 
-  async function add(e: React.FormEvent) {
+  function resetForm() {
+    setEditId(null); setType('MCQ'); setPrompt(''); setMarks('1'); setDifficulty('MEDIUM');
+    setNumericAnswer(''); setModelAnswer('');
+    setOptions([{ text: '', isCorrect: true }, { text: '', isCorrect: false }]);
+  }
+
+  function startEdit(q: Question) {
+    setEditId(q.id);
+    setType(q.type as any);
+    setPrompt(q.prompt);
+    setMarks(String(q.marks));
+    setDifficulty(q.difficulty);
+    if (q.type === 'MCQ') {
+      setOptions(q.options.length ? q.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) : [{ text: '', isCorrect: true }, { text: '', isCorrect: false }]);
+    } else if (q.type === 'TRUE_FALSE') {
+      const t = q.options.find((o) => /^true$/i.test(o.text));
+      setOptions([{ text: 'True', isCorrect: t?.isCorrect ?? true }]);
+    } else {
+      setOptions([{ text: '', isCorrect: true }, { text: '', isCorrect: false }]);
+    }
+    setNumericAnswer(q.type === 'NUMERIC' && q.numericAnswer != null ? String(q.numericAnswer) : '');
+    setModelAnswer(q.modelAnswer ?? '');
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
     try {
       const payload: any = { subjectId, type, prompt, marks: Number(marks), difficulty };
@@ -163,14 +202,14 @@ function QuestionBank({ subjectId, chapterId, questions, aiEnabled, onChange, on
         { text: 'False', isCorrect: !(options[0]?.isCorrect ?? true) },
       ];
       if (type === 'NUMERIC') payload.numericAnswer = Number(numericAnswer);
-      if (type === 'SHORT' || type === 'LONG') payload.modelAnswer = modelAnswer || undefined;
-      await api.post('/api/admin/questions', payload);
-      setPrompt(''); setNumericAnswer(''); setModelAnswer('');
-      setOptions([{ text: '', isCorrect: true }, { text: '', isCorrect: false }]);
+      if (type === 'SHORT' || type === 'LONG') payload.modelAnswer = modelAnswer || null;
+      if (editId) await api.patch(`/api/admin/questions/${editId}`, payload);
+      else await api.post('/api/admin/questions', payload);
+      resetForm();
       onChange();
     } catch (e) { onErr(e); } finally { setBusy(false); }
   }
-  async function del(id: string) { try { await api.del(`/api/admin/questions/${id}`); onChange(); } catch (e) { onErr(e); } }
+  async function del(id: string) { try { await api.del(`/api/admin/questions/${id}`); if (editId === id) resetForm(); onChange(); } catch (e) { onErr(e); } }
 
   return (
     <div className="card">
@@ -202,17 +241,26 @@ function QuestionBank({ subjectId, chapterId, questions, aiEnabled, onChange, on
         </div>
       )}
 
-      <form onSubmit={add} className="mb-4 space-y-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3">
+      <form onSubmit={submit} className={`mb-4 space-y-2 rounded-xl border p-3 ${editId ? 'border-brand-300 bg-brand-50/50' : 'border-dashed border-slate-300 bg-slate-50/60'}`}>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{editId ? 'Edit question' : 'Add a question'}</p>
+          {editId && <button type="button" className="text-xs font-medium text-slate-500 hover:text-slate-800" onClick={resetForm}>Cancel</button>}
+        </div>
         <div className="flex gap-2">
           <select className="input" value={type} onChange={(e) => setType(e.target.value as any)}>
-            {TYPES.map((t) => <option key={t} value={t}>{t.replace('_', '/')}</option>)}
+            {TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
           </select>
           <select className="input w-28" value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
             <option>EASY</option><option>MEDIUM</option><option>HARD</option>
           </select>
           <input className="input w-20" type="number" min={1} value={marks} onChange={(e) => setMarks(e.target.value)} title="Marks" />
         </div>
-        <textarea className="input" rows={2} placeholder="Question prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} required />
+        <p className="text-[11px] text-slate-500">
+          {objective ? 'Auto-graded — the student picks an answer.'
+            : type === 'NUMERIC' ? 'Auto-graded — the student types a number.'
+            : 'Written — the student writes their answer and submits it for you to grade. No options needed.'}
+        </p>
+        <textarea className="input" rows={2} placeholder={written ? 'Task / question for the student to answer in writing' : 'Question prompt'} value={prompt} onChange={(e) => setPrompt(e.target.value)} required />
 
         {type === 'MCQ' && (
           <div className="space-y-1.5">
@@ -236,10 +284,10 @@ function QuestionBank({ subjectId, chapterId, questions, aiEnabled, onChange, on
         {type === 'NUMERIC' && (
           <input className="input" type="number" step="any" placeholder="Correct numeric answer" value={numericAnswer} onChange={(e) => setNumericAnswer(e.target.value)} required />
         )}
-        {(type === 'SHORT' || type === 'LONG') && (
-          <textarea className="input" rows={2} placeholder="Model answer (for grading reference)" value={modelAnswer} onChange={(e) => setModelAnswer(e.target.value)} />
+        {written && (
+          <textarea className="input" rows={2} placeholder="Model answer (optional — shown to you while grading)" value={modelAnswer} onChange={(e) => setModelAnswer(e.target.value)} />
         )}
-        <button className="btn w-full" disabled={busy}>{busy ? 'Adding…' : 'Add question'}</button>
+        <button className="btn w-full" disabled={busy}>{busy ? 'Saving…' : editId ? 'Save changes' : 'Add question'}</button>
       </form>
 
       <ul className="space-y-2">
@@ -257,6 +305,7 @@ function QuestionBank({ subjectId, chapterId, questions, aiEnabled, onChange, on
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {q.status === 'DRAFT' && <button className="btn btn-sm" onClick={() => approve(q.id)}>Approve</button>}
+                <button className="btn-ghost btn-sm" onClick={() => startEdit(q)} title="Edit">Edit</button>
                 <button className="text-slate-300 hover:text-red-600" onClick={() => del(q.id)} title="Delete">✕</button>
               </div>
             </div>
@@ -277,58 +326,99 @@ function AssessmentBuilder({ subjectId, chapterId, questions, assessments, onCha
   const [minutes, setMinutes] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editLocked, setEditLocked] = useState(false); // has attempts → question set locked
 
   function toggle(id: string) { setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]); }
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault(); if (picked.length === 0) { onErr('Select at least one question'); return; }
+  function resetForm() { setEditId(null); setEditLocked(false); setType('QUIZ'); setTitle(''); setMinutes(''); setPicked([]); }
+
+  async function startEdit(a: Assessment) {
+    try {
+      const d = await api.get<{ assessment: { type: string; title: string; timeLimitSec: number | null; questions: { questionId: string }[] } }>(`/api/admin/assessments/${a.id}`);
+      setEditId(a.id);
+      setEditLocked(a._count.attempts > 0);
+      setType(d.assessment.type as any);
+      setTitle(d.assessment.title);
+      setMinutes(d.assessment.timeLimitSec ? String(Math.round(d.assessment.timeLimitSec / 60)) : '');
+      setPicked(d.assessment.questions.map((q) => q.questionId));
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) { onErr(e); }
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editLocked && picked.length === 0) { onErr('Select at least one question'); return; }
     setBusy(true);
     try {
-      const payload: any = { type, subjectId, title, questionIds: picked };
-      if (chapterId) payload.chapterId = chapterId;
-      if (minutes) payload.timeLimitSec = Number(minutes) * 60;
-      await api.post('/api/admin/assessments', payload);
-      setTitle(''); setMinutes(''); setPicked([]); onChange();
+      if (editId) {
+        const payload: any = { type, title, timeLimitSec: minutes ? Number(minutes) * 60 : null };
+        if (!editLocked) payload.questionIds = picked; // question set locked once attempted
+        await api.patch(`/api/admin/assessments/${editId}`, payload);
+      } else {
+        const payload: any = { type, subjectId, title, questionIds: picked };
+        if (chapterId) payload.chapterId = chapterId;
+        if (minutes) payload.timeLimitSec = Number(minutes) * 60;
+        await api.post('/api/admin/assessments', payload);
+      }
+      resetForm(); onChange();
     } catch (e) { onErr(e); } finally { setBusy(false); }
   }
   async function setStatus(a: Assessment, status: string) {
     try { await api.patch(`/api/admin/assessments/${a.id}`, { status }); onChange(); } catch (e) { onErr(e); }
   }
-  async function del(a: Assessment) { try { await api.del(`/api/admin/assessments/${a.id}`); onChange(); } catch (e) { onErr(e); } }
+  async function del(a: Assessment) { try { await api.del(`/api/admin/assessments/${a.id}`); if (editId === a.id) resetForm(); onChange(); } catch (e) { onErr(e); } }
 
   return (
     <div className="card">
       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Assessments ({assessments.length})</h3>
-      <form onSubmit={create} className="mb-4 space-y-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3">
+      <form onSubmit={submit} className={`mb-4 space-y-2 rounded-xl border p-3 ${editId ? 'border-brand-300 bg-brand-50/50' : 'border-dashed border-slate-300 bg-slate-50/60'}`}>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{editId ? 'Edit assessment' : 'Create an assessment'}</p>
+          {editId && <button type="button" className="text-xs font-medium text-slate-500 hover:text-slate-800" onClick={resetForm}>Cancel</button>}
+        </div>
         <div className="flex gap-2">
           <select className="input" value={type} onChange={(e) => setType(e.target.value as any)}>
-            {A_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            {A_TYPES.map((t) => <option key={t} value={t}>{A_TYPE_LABELS[t]}</option>)}
           </select>
           <input className="input w-28" type="number" min={1} placeholder="Mins" value={minutes} onChange={(e) => setMinutes(e.target.value)} title="Time limit (optional)" />
         </div>
-        <input className="input" placeholder="Title e.g. Real Numbers Quiz 1" value={title} onChange={(e) => setTitle(e.target.value)} required />
-        <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2">
-          {questions.length === 0 && <p className="text-xs text-slate-400">Add questions to the bank first.</p>}
-          {questions.map((q) => (
-            <label key={q.id} className="flex items-start gap-2 rounded p-1 text-sm hover:bg-slate-50">
-              <input type="checkbox" className="mt-1" checked={picked.includes(q.id)} onChange={() => toggle(q.id)} />
-              <span className="min-w-0"><span className="line-clamp-2">{q.prompt}</span>
-                <span className="text-xs text-slate-400">{q.type.replace('_', '/')} · {q.marks}m</span></span>
-            </label>
-          ))}
-        </div>
-        <button className="btn w-full" disabled={busy}>{busy ? 'Creating…' : `Create ${type.toLowerCase()} (${picked.length} Qs)`}</button>
+        {type === 'ASSIGNMENT' && (
+          <p className="rounded-lg bg-brand-50 px-2.5 py-1.5 text-[11px] text-brand-700">
+            An assignment can be fully written — add <b>Short/Long answer</b> questions and students type &amp; submit. Multiple-choice is optional.
+          </p>
+        )}
+        <input className="input" placeholder="Title e.g. Real Numbers — Assignment 1" value={title} onChange={(e) => setTitle(e.target.value)} required />
+        {editLocked ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-700">
+            Students have already attempted this — the question set is locked. You can still change the title and time limit.
+          </p>
+        ) : (
+          <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2">
+            {questions.length === 0 && <p className="text-xs text-slate-400">Add questions to the bank first.</p>}
+            {questions.map((q) => (
+              <label key={q.id} className="flex items-start gap-2 rounded p-1 text-sm hover:bg-slate-50">
+                <input type="checkbox" className="mt-1" checked={picked.includes(q.id)} onChange={() => toggle(q.id)} />
+                <span className="min-w-0"><span className="line-clamp-2">{q.prompt}</span>
+                  <span className="text-xs text-slate-400">{TYPE_LABELS[q.type] ?? q.type} · {q.marks}m</span></span>
+              </label>
+            ))}
+          </div>
+        )}
+        <button className="btn w-full" disabled={busy}>
+          {busy ? 'Saving…' : editId ? 'Save changes' : `Create ${A_TYPE_LABELS[type].toLowerCase()} (${picked.length} Qs)`}
+        </button>
       </form>
 
       <ul className="space-y-2">
         {assessments.length === 0 && <li className="text-sm text-slate-400">No assessments yet.</li>}
         {assessments.map((a) => (
-          <li key={a.id} className="rounded-lg border border-slate-200 p-3">
+          <li key={a.id} className={`rounded-lg border p-3 ${editId === a.id ? 'border-brand-300 bg-brand-50/40' : 'border-slate-200'}`}>
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-slate-800">{a.title}</p>
                 <p className="mt-1 flex flex-wrap gap-1.5">
-                  <span className="pill">{a.type}</span>
+                  <span className="pill">{A_TYPE_LABELS[a.type] ?? a.type}</span>
                   <span className="pill">{a._count.questions} Qs · {a.totalMarks}m</span>
                   <span className={a.status === 'PUBLISHED' ? 'pill-brand' : 'pill'}>{a.status.toLowerCase()}</span>
                   <span className="pill">{a._count.attempts} attempts</span>
@@ -338,6 +428,7 @@ function AssessmentBuilder({ subjectId, chapterId, questions, assessments, onCha
               <button className="shrink-0 text-slate-300 hover:text-red-600" onClick={() => del(a)} title="Delete">✕</button>
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
+              <button className="btn-ghost btn-sm" onClick={() => startEdit(a)}>Edit</button>
               {a.status === 'PUBLISHED'
                 ? <button className="btn-ghost btn-sm" onClick={() => setStatus(a, 'DRAFT')}>Unpublish</button>
                 : <button className="btn btn-sm" onClick={() => setStatus(a, 'PUBLISHED')}>Publish</button>}
