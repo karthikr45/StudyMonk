@@ -14,11 +14,20 @@ export default function Dashboard() {
   const { user, loading } = useMe();
   const router = useRouter();
   const [tab, setTab] = useState<'study' | 'assess' | 'progress' | 'groups'>('study');
+  const [deepGroup, setDeepGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
     if (!loading && user?.role === 'SUPER_ADMIN') router.replace('/admin');
   }, [user, loading, router]);
+
+  // Deep-link support (e.g. from a notification): ?tab=groups&group=<id>
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const t = sp.get('tab');
+    if (t === 'groups' || t === 'assess' || t === 'progress' || t === 'study') setTab(t);
+    setDeepGroup(sp.get('group'));
+  }, []);
 
   if (loading || !user) {
     return <main className="grid min-h-screen place-items-center text-sm text-slate-500">Loading…</main>;
@@ -58,7 +67,7 @@ export default function Dashboard() {
         {tab === 'study' && <StudyTab user={user} />}
         {tab === 'assess' && <AssessmentsTab />}
         {tab === 'progress' && <ProgressTab />}
-        {tab === 'groups' && <GroupsTab meId={user.id} />}
+        {tab === 'groups' && <GroupsTab meId={user.id} initialGroupId={deepGroup} />}
       </main>
     </div>
   );

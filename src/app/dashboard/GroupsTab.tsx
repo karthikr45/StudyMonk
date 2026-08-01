@@ -10,7 +10,7 @@ interface Group {
   isMember: boolean; myRole: string | null; createdBy: { id: string; fullName: string };
 }
 
-export default function GroupsTab({ meId }: { meId: string }) {
+export default function GroupsTab({ meId, initialGroupId }: { meId: string; initialGroupId?: string | null }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [scope, setScope] = useState<{ schoolDisplay: string; academicYear: string } | null>(null);
   const [name, setName] = useState('');
@@ -26,6 +26,14 @@ export default function GroupsTab({ meId }: { meId: string }) {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load().catch(() => {}); }, []);
+
+  // Auto-open a deep-linked group (from a notification) once it's a member match.
+  useEffect(() => {
+    if (initialGroupId && !open) {
+      const g = groups.find((x) => x.id === initialGroupId && x.isMember);
+      if (g) setOpen(g);
+    }
+  }, [groups, initialGroupId, open]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault(); setError(null);

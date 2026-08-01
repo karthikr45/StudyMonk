@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMe } from '@/lib/client/useAuth';
 import { api, ApiError } from '@/lib/client/api';
 import Header from '@/components/Header';
+import MathText from '@/components/MathText';
 
 interface RQ {
   id: string; type: string; prompt: string; marks: number;
@@ -81,7 +82,7 @@ export default function AttemptResultPage() {
                   return (
                     <li key={q.id} className="card">
                       <div className="mb-2 flex items-start justify-between gap-3">
-                        <p className="font-semibold text-slate-900">{i + 1}. {q.prompt}</p>
+                        <p className="font-semibold text-slate-900">{i + 1}. <MathText>{q.prompt}</MathText></p>
                         <span className={`pill shrink-0 ${correct ? '!bg-emerald-50 !text-emerald-600' : q.isCorrect === false ? '!bg-rose-50 !text-rose-600' : ''}`}>
                           {q.awardedMarks ?? 0}/{q.marks}
                         </span>
@@ -94,7 +95,7 @@ export default function AttemptResultPage() {
                             const good = o.isCorrect;
                             return (
                               <div key={o.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${good ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : mine ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-600'}`}>
-                                <span>{good ? '✓' : mine ? '✗' : '•'}</span>{o.text}{mine && <span className="ml-auto text-xs">your answer</span>}
+                                <span>{good ? '✓' : mine ? '✗' : '•'}</span><MathText>{o.text}</MathText>{mine && <span className="ml-auto text-xs">your answer</span>}
                               </div>
                             );
                           })}
@@ -106,7 +107,7 @@ export default function AttemptResultPage() {
                           {q.type === 'LONG' && q.yourText
                             ? <div className="prose-answer" dangerouslySetInnerHTML={{ __html: q.yourText }} />
                             : <p className="whitespace-pre-wrap">{q.yourText || '— no answer —'}</p>}
-                          {q.modelAnswer && <p className="mt-2 text-xs text-slate-500"><b>Model answer:</b> {q.modelAnswer}</p>}
+                          {q.modelAnswer && <p className="mt-2 text-xs text-slate-500"><b>Model answer:</b> <MathText>{q.modelAnswer}</MathText></p>}
                         </div>
                       )}
                       {q.feedback && <p className="mt-2 text-xs text-slate-500"><b>Feedback:</b> {q.feedback}</p>}

@@ -7,6 +7,7 @@ import { useMe } from '@/lib/client/useAuth';
 import { api, ApiError } from '@/lib/client/api';
 import Header from '@/components/Header';
 import RichEditor from '@/components/RichEditor';
+import MathText from '@/components/MathText';
 
 interface Q { id: string; type: string; prompt: string; marks: number; options: { id: string; text: string }[] }
 interface Ans { selectedOptionIds?: string[]; textAnswer?: string; numericAnswer?: number | null }
@@ -109,7 +110,7 @@ export default function RunnerPage() {
               {data.questions.map((q, i) => (
                 <li key={q.id} className="card">
                   <div className="mb-3 flex items-start justify-between gap-3">
-                    <p className="font-semibold text-slate-900">{i + 1}. {q.prompt}</p>
+                    <p className="font-semibold text-slate-900">{i + 1}. <MathText>{q.prompt}</MathText></p>
                     <span className="pill shrink-0">{q.marks}m</span>
                   </div>
 
@@ -120,7 +121,7 @@ export default function RunnerPage() {
                         return (
                           <label key={o.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm ${sel ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:bg-slate-50'}`}>
                             <input type="radio" name={q.id} checked={!!sel} onChange={() => set(q.id, { selectedOptionIds: [o.id] })} />
-                            {o.text}
+                            <MathText>{o.text}</MathText>
                           </label>
                         );
                       })}

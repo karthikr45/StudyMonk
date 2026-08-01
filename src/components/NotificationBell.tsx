@@ -1,19 +1,26 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/client/api';
 import { IconBell } from './icons';
 
 interface Note {
-  id: string; type: string; actorName: string; groupName: string | null; excerpt: string | null;
+  id: string; type: string; actorName: string; groupId: string | null; groupName: string | null; excerpt: string | null;
   read: boolean; createdAt: string;
 }
 
 export default function NotificationBell() {
+  const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  function goto(n: Note) {
+    setOpen(false);
+    if (n.groupId) router.push(`/dashboard?tab=groups&group=${n.groupId}`);
+  }
 
   async function load() {
     try {
@@ -60,7 +67,7 @@ export default function NotificationBell() {
           <ul className="max-h-80 overflow-y-auto">
             {notes.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-400">Nothing yet.</li>}
             {notes.map((n) => (
-              <li key={n.id} className={`px-4 py-2.5 text-sm ${n.read ? '' : 'bg-brand-50/50'}`}>
+              <li key={n.id} onClick={() => goto(n)} className={`cursor-pointer px-4 py-2.5 text-sm hover:bg-slate-50 ${n.read ? '' : 'bg-brand-50/50'}`}>
                 <p className="text-slate-800">
                   <b>{n.actorName}</b> {n.type === 'MENTION' ? 'mentioned you' : 'replied to you'}
                   {n.groupName && <> in <b>{n.groupName}</b></>}

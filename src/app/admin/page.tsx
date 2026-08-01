@@ -33,6 +33,7 @@ export default function AdminPage() {
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
+            <Link href="/admin/analytics" className="btn-ghost">Analytics →</Link>
             <Link href="/admin/groups" className="btn-ghost">Groups →</Link>
             <Link href="/admin/assessments" className="btn">Assessments →</Link>
           </div>
