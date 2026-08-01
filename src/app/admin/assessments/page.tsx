@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useMe } from '@/lib/client/useAuth';
 import Header from '@/components/Header';
 import AssessmentManager from './AssessmentManager';
+import AssessmentOverview from './AssessmentOverview';
 
 export default function AdminAssessmentsPage() {
   const { user, loading } = useMe();
@@ -28,11 +29,22 @@ export default function AdminAssessmentsPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Assessments</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Build a question bank per subject/chapter, then assemble quizzes, assignments,
-              daily activities and board exams. Objective questions auto-grade instantly.
+              Everything you&apos;ve created — with live status, submissions and what needs grading.
             </p>
           </div>
           <Link href="/admin" className="btn-ghost shrink-0">← Catalog</Link>
+        </div>
+
+        {/* Everything at a glance — no picker needed */}
+        <AssessmentOverview />
+
+        {/* Create / edit — scoped to a subject's question bank */}
+        <div className="mt-10 mb-4 border-t border-slate-200 pt-8">
+          <h2 className="text-lg font-bold text-slate-900">Build &amp; edit</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Pick a subject to manage its question bank and assemble quizzes, assignments,
+            daily activities and board exams. Objective questions auto-grade instantly.
+          </p>
         </div>
         <AssessmentManager />
       </main>
