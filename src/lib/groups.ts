@@ -1,6 +1,8 @@
+import { NextRequest } from 'next/server';
 import { prisma } from './prisma';
 import { HttpError } from './http';
-import type { StudentProfile } from './student';
+import { guard } from './auth';
+import { studentProfile, type StudentProfile } from './student';
 
 /** Fetch a group and assert the student's profile matches its key. */
 export async function getEligibleGroup(groupId: string, p: StudentProfile) {
@@ -29,6 +31,15 @@ export async function requireMembership(groupId: string, userId: string) {
   });
   if (!member) throw new HttpError('You are not a member of this group', 403, 'NOT_MEMBER');
   return member;
+}
+
+/** Guard + scope + membership in one call for group collaboration routes. */
+export async function requireGroupMember(req: NextRequest, groupId: string) {
+  const auth = await guard(req, { role: 'STUDENT' });
+  const p = await studentProfile(auth.id);
+  const group = await getEligibleGroup(groupId, p);
+  await requireMembership(groupId, auth.id);
+  return { auth, group };
 }
 
 /** Require the caller to be an OWNER of the group. */

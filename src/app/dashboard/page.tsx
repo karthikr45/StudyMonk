@@ -55,7 +55,7 @@ export default function Dashboard() {
 
         {tab === 'study' && <StudyTab user={user} />}
         {tab === 'assess' && <AssessmentsTab />}
-        {tab === 'groups' && <GroupsTab />}
+        {tab === 'groups' && <GroupsTab meId={user.id} />}
       </main>
     </div>
   );

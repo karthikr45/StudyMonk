@@ -46,6 +46,10 @@ model User {
   uploadedMaterials StudyMaterial[] @relation("MaterialUploader")
   chapterViews   ChapterView[]
   attempts       Attempt[]
+  groupResources GroupResource[]
+  groupCardSets  GroupCardSet[]
+  groupPolls     GroupPoll[]
+  groupPollVotes GroupPollVote[]
 
   @@index([boardId, classId, academicYear, schoolName])
 }
@@ -80,6 +84,7 @@ model Board {
 
   classes Class[]
   users   User[]
+  studyGroups StudyGroup[]
 }
 
 model Class {
@@ -94,6 +99,7 @@ model Class {
   board    Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
   subjects Subject[]
   users    User[]
+  studyGroups StudyGroup[]
 
   @@unique([boardId, name])
 }
@@ -203,8 +209,13 @@ model StudyGroup {
   updatedAt    DateTime @updatedAt
 
   createdBy User          @relation("GroupCreator", fields: [createdById], references: [id])
+  board     Board         @relation(fields: [boardId], references: [id])
+  class     Class         @relation(fields: [classId], references: [id])
   members   GroupMember[]
   posts     GroupPost[]
+  resources GroupResource[]
+  cardSets  GroupCardSet[]
+  polls     GroupPoll[]
 
   @@index([boardId, classId, academicYear, schoolName])
 }
@@ -223,18 +234,118 @@ model GroupMember {
   @@index([userId])
 }
 
-// Simple discussion feed inside a group.
+// Discussion feed inside a group, with edit, threaded replies and @mentions.
 model GroupPost {
-  id        String   @id @default(cuid())
-  groupId   String
-  authorId  String
-  body      String
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  groupId    String
+  authorId   String
+  body       String
+  parentId   String? // reply target
+  mentionIds String[] // tagged member user ids
+  editedAt   DateTime?
+  createdAt  DateTime  @default(now())
 
-  group  StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  author User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  group   StudyGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author  User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent  GroupPost?  @relation("PostReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies GroupPost[] @relation("PostReplies")
 
   @@index([groupId])
+}
+
+// A file/document shared into a group (stored in R2).
+model GroupResource {
+  id          String   @id @default(cuid())
+  groupId     String
+  uploaderId  String
+  title       String
+  storageKey  String
+  fileName    String
+  fileSize    Int
+  contentType String
+  createdAt   DateTime @default(now())
+
+  group    StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  uploader User       @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+}
+
+// Student-made flashcard deck inside a group.
+model GroupCardSet {
+  id          String          @id @default(cuid())
+  groupId     String
+  createdById String
+  title       String
+  createdAt   DateTime        @default(now())
+
+  group     StudyGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  cards     GroupCard[]
+
+  @@index([groupId])
+}
+
+model GroupCard {
+  id    String @id @default(cuid())
+  setId String
+  front String
+  back  String
+  order Int    @default(0)
+
+  set GroupCardSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+
+  @@index([setId])
+}
+
+enum GroupPollType {
+  POLL
+  QUIZ
+}
+
+// Student-made poll or quiz inside a group.
+model GroupPoll {
+  id          String        @id @default(cuid())
+  groupId     String
+  createdById String
+  type        GroupPollType @default(POLL)
+  question    String
+  createdAt   DateTime      @default(now())
+
+  group     StudyGroup        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  options   GroupPollOption[]
+  votes     GroupPollVote[]
+
+  @@index([groupId])
+}
+
+model GroupPollOption {
+  id        String  @id @default(cuid())
+  pollId    String
+  text      String
+  isCorrect Boolean @default(false) // for QUIZ
+  order     Int     @default(0)
+
+  poll  GroupPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes GroupPollVote[]
+
+  @@index([pollId])
+}
+
+model GroupPollVote {
+  id        String   @id @default(cuid())
+  pollId    String
+  optionId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  poll   GroupPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option GroupPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([pollId])
 }
 
 // ---------------------------------------------------------------------------

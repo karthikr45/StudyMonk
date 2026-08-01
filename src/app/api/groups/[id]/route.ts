@@ -34,12 +34,15 @@ export async function GET(
       }),
       prisma.groupPost.findMany({
         where: { groupId: params.id },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
+        orderBy: { createdAt: 'asc' },
+        take: 200,
         select: {
           id: true,
           body: true,
           createdAt: true,
+          editedAt: true,
+          parentId: true,
+          mentionIds: true,
           author: { select: { id: true, fullName: true } },
         },
       }),

@@ -98,7 +98,41 @@ export const createGroupSchema = z.object({
 
 export const postSchema = z.object({
   body: z.string().min(1).max(4000),
+  parentId: z.string().min(1).nullable().optional(),
+  mentionIds: z.array(z.string().min(1)).max(20).optional(),
 });
+
+export const editPostSchema = z.object({
+  body: z.string().min(1).max(4000),
+  mentionIds: z.array(z.string().min(1)).max(20).optional(),
+});
+
+export const groupResourceSchema = z.object({
+  title: z.string().min(1).max(200),
+  storageKey: z.string().min(1),
+  fileName: z.string().min(1).max(255),
+  fileSize: z.coerce.number().int().positive(),
+  contentType: z.string().min(1).max(160),
+});
+
+export const groupResourcePresignSchema = z.object({
+  fileName: z.string().min(1).max(255),
+  contentType: z.string().min(1).max(160),
+  fileSize: z.coerce.number().int().positive().max(200 * 1024 * 1024),
+});
+
+export const cardSetSchema = z.object({
+  title: z.string().min(1).max(160),
+  cards: z.array(z.object({ front: z.string().min(1).max(2000), back: z.string().min(1).max(2000) })).min(1).max(100),
+});
+
+export const groupPollSchema = z.object({
+  type: z.enum(['POLL', 'QUIZ']),
+  question: z.string().min(2).max(500),
+  options: z.array(z.object({ text: z.string().min(1).max(300), isCorrect: z.boolean().optional() })).min(2).max(8),
+});
+
+export const votePollSchema = z.object({ optionId: z.string().min(1) });
 
 export const addMemberSchema = z.object({
   userId: z.string().min(1),

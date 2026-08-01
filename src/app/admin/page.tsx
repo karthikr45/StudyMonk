@@ -32,7 +32,10 @@ export default function AdminPage() {
               chapters and upload NCERT materials. Students see content for their own class.
             </p>
           </div>
-          <Link href="/admin/assessments" className="btn shrink-0">Assessments →</Link>
+          <div className="flex shrink-0 gap-2">
+            <Link href="/admin/groups" className="btn-ghost">Groups →</Link>
+            <Link href="/admin/assessments" className="btn">Assessments →</Link>
+          </div>
         </div>
         <CatalogManager />
       </main>
