@@ -252,7 +252,7 @@ function QuestionBank({ subjectId, chapterId, questions, aiEnabled, onChange, on
                 <p className="mt-1 flex flex-wrap gap-1.5">
                   <span className="pill">{q.type.replace('_', '/')}</span><span className="pill">{q.marks}m</span><span className="pill">{q.difficulty}</span>
                   {q.source === 'AI' && <span className="pill-brand">AI</span>}
-                  {q.status === 'DRAFT' && <span className="pill" style={{ color: '#b45309', background: '#fffbeb' }}>draft</span>}
+                  {q.status === 'DRAFT' && <span className="pill" style={{ color: '#d18a24', background: '#fdf6ea' }}>draft</span>}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
