@@ -1,8 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { logout, MeUser } from '@/lib/client/useAuth';
 import { IconLogout } from './icons';
+
+const ADMIN_LINKS = [
+  { href: '/admin', label: 'Content catalog' },
+  { href: '/admin/assessments', label: 'Assessments' },
+  { href: '/admin/groups', label: 'Study groups' },
+  { href: '/admin/analytics', label: 'Analytics' },
+];
 
 export default function UserMenu({ user }: { user: MeUser }) {
   const [open, setOpen] = useState(false);
@@ -56,6 +64,22 @@ export default function UserMenu({ user }: { user: MeUser }) {
               </span>
             </div>
           </div>
+
+          {user.role === 'SUPER_ADMIN' && (
+            <div className="border-b border-slate-100 py-1">
+              {ADMIN_LINKS.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setOpen(false)}
+                  className="block px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-brand-700"
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          )}
+
           <button
             onClick={() => logout()}
             className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600"

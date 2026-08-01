@@ -1,4 +1,5 @@
 import { IconLogo } from './icons';
+import PoweredByLogo from './PoweredByLogo';
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -27,10 +28,11 @@ export default function Footer() {
             href="https://mktechmonk.in"
             target="_blank"
             rel="noopener noreferrer"
-            className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-500 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:text-brand-700 hover:shadow-md"
+            className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md"
           >
-            Powered by <span className="font-semibold text-gradient">MK Tech Monk</span>
-            <span className="transition-transform duration-200 group-hover:translate-x-0.5">↗</span>
+            <span className="text-slate-400">Powered by</span>
+            <PoweredByLogo />
+            <span className="text-slate-400 transition-transform duration-200 group-hover:translate-x-0.5">↗</span>
           </a>
         </div>
       </div>
