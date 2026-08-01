@@ -73,7 +73,7 @@ export default function SubjectPage() {
         {subject && (
           <>
             <div className="card mb-6 flex items-center gap-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-lift">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lift">
                 <IconBook width={26} height={26} />
               </span>
               <div className="flex-1">

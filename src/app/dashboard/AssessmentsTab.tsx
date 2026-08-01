@@ -14,8 +14,8 @@ interface Item {
 }
 
 const typeColor: Record<string, string> = {
-  QUIZ: 'from-amber-500 to-orange-500', ASSIGNMENT: 'from-emerald-500 to-teal-500',
-  DAILY: 'from-indigo-500 to-violet-500', EXAM: 'from-rose-500 to-pink-500',
+  QUIZ: 'from-accent-500 to-accent-600', ASSIGNMENT: 'from-brand-500 to-brand-700',
+  DAILY: 'from-brand-600 to-brand-800', EXAM: 'from-brand-500 to-accent-500',
 };
 
 export default function AssessmentsTab() {

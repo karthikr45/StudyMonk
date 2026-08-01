@@ -9,13 +9,15 @@ import { IconBook, IconUsers, IconChevron } from '@/components/icons';
 interface Subject { id: string; name: string; code: string; chapterCount: number; studentCount: number }
 
 // Colour accents cycled across subject cards for a lively, professional grid.
+// Brand-family accents (teal + amber) so subject tiles stay differentiated
+// without leaving the StudyMonk palette.
 const accents = [
-  'from-indigo-500 to-violet-500',
-  'from-sky-500 to-cyan-500',
-  'from-emerald-500 to-teal-500',
-  'from-amber-500 to-orange-500',
-  'from-rose-500 to-pink-500',
-  'from-fuchsia-500 to-purple-500',
+  'from-brand-600 to-brand-800',
+  'from-brand-500 to-brand-700',
+  'from-brand-500 to-accent-500',
+  'from-accent-500 to-accent-600',
+  'from-brand-400 to-brand-600',
+  'from-brand-700 to-brand-500',
 ];
 
 function StatCard({ label, value, sub, icon }: { label: string; value: string; sub?: string; icon: React.ReactNode }) {
