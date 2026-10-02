@@ -11,3 +11,7 @@ Run `npm run db:migrate` against the intended database before starting this vers
 Deploy client and API together. Native clients must send schoolId from the catalog endpoint. Admin edits/deactivation are not included in this add-school feature.
 
 Validation: production build passed and all 16 tests passed against an isolated database. Coverage includes seeded catalog reads, admin-only creation, duplicate normalization, dynamically added school visibility, inactive/unknown school rejection and canonical names on newly registered users. The migration has not been run against the user's live database: this checkout has no configured live DATABASE_URL.
+
+## Academic-year dropdown
+
+Signup also fetches `/api/catalog/academic-years`. The server supplies the current academic year plus four previous years, newest first, and registration validates against the same policy. Future/nonconsecutive/out-of-range values are rejected. The default rollover policy is April 1 in Asia/Kolkata; adjust `src/lib/academicYears.ts` if the school uses a different start month. No database migration is required for this dropdown.

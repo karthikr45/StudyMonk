@@ -22,6 +22,14 @@ interface Klass {
 export default function RegisterPage() {
   const router = useRouter();
   const {
+    data: yearData,
+    loading: yearsLoading,
+    error: yearsError,
+    retry: retryYears,
+  } = useRemote<{ years: string[]; current: string }>(
+    '/api/catalog/academic-years',
+  );
+  const {
     data: schoolData,
     loading: schoolsLoading,
     error: schoolsError,
@@ -42,6 +50,16 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (yearData)
+      setForm((form) => ({
+        ...form,
+        academicYear: yearData.years.includes(form.academicYear)
+          ? form.academicYear
+          : yearData.current,
+      }));
+  }, [yearData]);
 
   useEffect(() => {
     api
@@ -177,15 +195,32 @@ export default function RegisterPage() {
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="label">Academic year</label>
-            <input
+            <label className="label" htmlFor="signup-year">
+              Academic year
+            </label>
+            <select
+              id="signup-year"
               className="input"
-              placeholder="2025-2026"
               value={form.academicYear}
               onChange={(e) => set('academicYear', e.target.value)}
               required
-              pattern="\d{4}-\d{4}"
-            />
+              disabled={yearsLoading || !!yearsError}
+            >
+              <option value="">
+                {yearsLoading
+                  ? 'Loading academic years…'
+                  : 'Select academic year'}
+              </option>
+              {yearData?.years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                  {year === yearData.current ? ' (Current)' : ''}
+                </option>
+              ))}
+            </select>
+            {yearsError && (
+              <LoadError message={yearsError} retry={retryYears} />
+            )}
           </div>
           <div>
             <label className="label" htmlFor="signup-school">
@@ -229,7 +264,15 @@ export default function RegisterPage() {
         )}
         <button
           className="btn w-full"
-          disabled={busy || schoolsLoading || !!schoolsError || !form.schoolId}
+          disabled={
+            busy ||
+            schoolsLoading ||
+            !!schoolsError ||
+            !form.schoolId ||
+            yearsLoading ||
+            !!yearsError ||
+            !form.academicYear
+          }
         >
           {busy ? 'Creating…' : 'Create account'}
         </button>

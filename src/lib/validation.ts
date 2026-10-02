@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isAvailableAcademicYear } from './academicYears';
 
 const password = z
   .string()
@@ -7,7 +8,10 @@ const password = z
 
 const academicYear = z
   .string()
-  .regex(/^\d{4}-\d{4}$/, 'Academic year must look like 2025-2026');
+  .refine(
+    (value) => isAvailableAcademicYear(value),
+    'Select the current academic year or one of the previous four years',
+  );
 
 // A "code" the admin can type however they like (e.g. "CBSE", "Math") — we
 // slugify it: lowercase, spaces/symbols → dashes. So the admin never has to
