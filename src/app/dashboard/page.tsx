@@ -63,11 +63,26 @@ function DashboardContent() {
   return (
     <div className="min-h-screen">
       <Header user={user} subtitle={subtitle} />
-      <main className="mx-auto max-w-6xl px-6 py-8 animate-fade-in">
-        <div className="mb-6 flex flex-col gap-1">
-          <h1 className="text-2xl font-bold text-slate-900">
-            Hi {user.fullName.split(' ')[0]} 👋
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 animate-fade-in">
+        <div className="dashboard-greeting">
+          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">
+            {tab === 'groups'
+              ? 'Better together.'
+              : tab === 'assess'
+                ? 'Show what you know.'
+                : tab === 'progress'
+                  ? 'Look how far you’ve come.'
+                  : `Make today count, ${user.fullName.split(' ')[0]}.`}
           </h1>
+          <p className="mt-2 text-sm text-slate-600">
+            {tab === 'groups'
+              ? 'Your people. Shared notes. Big ideas.'
+              : tab === 'assess'
+                ? 'A little practice today. More confidence tomorrow.'
+                : tab === 'progress'
+                  ? 'Every session is a step forward.'
+                  : 'Pick a subject, find your focus, and take the next step.'}
+          </p>
           {user.schoolDisplay && (
             <p className="text-sm text-slate-500">{user.schoolDisplay}</p>
           )}
@@ -76,7 +91,7 @@ function DashboardContent() {
         <div
           role="tablist"
           aria-label="Student dashboard"
-          className="mb-6 grid grid-cols-2 gap-1 sm:inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-card"
+          className="workspace-tabs mb-6 grid grid-cols-2 gap-1 sm:inline-flex rounded-2xl border border-slate-200 bg-white p-1.5 shadow-card"
         >
           {tabs.map((t) => (
             <button

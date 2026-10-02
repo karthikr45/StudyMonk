@@ -4,25 +4,42 @@ import { MeUser } from '@/lib/client/useAuth';
 import BrandMark from './BrandMark';
 import NotificationBell from './NotificationBell';
 import UserMenu from './UserMenu';
+import AdminNav from './AdminNav';
 
-export default function Header({ user, subtitle }: { user: MeUser; subtitle?: string }) {
+export default function Header({
+  user,
+  subtitle,
+}: {
+  user: MeUser;
+  subtitle?: string;
+}) {
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl">
-      <div className="h-0.5 w-full bg-brand-gradient" />
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-3">
-          <BrandMark size={40} className="shadow-lift transition-transform duration-200 hover:scale-105" />
-          <div>
-            <p className="font-display text-base font-bold leading-tight text-slate-900">Study<span className="text-brand-600">Monk</span></p>
-            {subtitle && <p className="text-xs font-medium text-slate-500">{subtitle}</p>}
+    <>
+      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl">
+        <div className="h-0.5 w-full bg-brand-gradient" />
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-3">
+            <BrandMark
+              size={40}
+              className="shadow-lift transition-transform duration-200 hover:scale-105"
+            />
+            <div>
+              <p className="font-display text-base font-bold leading-tight text-slate-900">
+                Study<span className="text-brand-600">Monk</span>
+              </p>
+              {subtitle && (
+                <p className="text-xs font-medium text-slate-500">{subtitle}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <NotificationBell />
+            <UserMenu user={user} />
           </div>
         </div>
-
-        <div className="flex items-center gap-2.5">
-          <NotificationBell />
-          <UserMenu user={user} />
-        </div>
-      </div>
-    </header>
+      </header>
+      {user.role === 'SUPER_ADMIN' && <AdminNav />}
+    </>
   );
 }

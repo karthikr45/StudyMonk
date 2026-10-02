@@ -14,7 +14,8 @@ export default function AdminAssessmentsPage() {
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
-    if (!loading && user && user.role !== 'SUPER_ADMIN') router.replace('/dashboard');
+    if (!loading && user && user.role !== 'SUPER_ADMIN')
+      router.replace('/dashboard');
   }, [user, loading, router]);
 
   if (loading || !user || user.role !== 'SUPER_ADMIN') {
@@ -24,26 +25,32 @@ export default function AdminAssessmentsPage() {
   return (
     <div className="min-h-screen">
       <Header user={user} subtitle="Assessments" />
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6 flex items-start justify-between gap-4">
+      <main className="mx-auto max-w-7xl px-6 py-8">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Assessments</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Assessment studio
+            </h1>
             <p className="mt-1 text-sm text-slate-500">
-              Everything you&apos;ve created — with live status, submissions and what needs grading.
+              Everything you&apos;ve created — with live status, submissions and
+              what needs grading.
             </p>
           </div>
-          <Link href="/admin" className="btn-ghost shrink-0">← Catalog</Link>
+          <Link href="/admin" className="btn-ghost shrink-0">
+            Overview →
+          </Link>
         </div>
 
         {/* Everything at a glance — no picker needed */}
         <AssessmentOverview />
 
         {/* Create / edit — scoped to a subject's question bank */}
-        <div className="mt-10 mb-4 border-t border-slate-200 pt-8">
+        <div id="builder" className="mt-10 mb-4 border-t border-slate-200 pt-8">
           <h2 className="text-lg font-bold text-slate-900">Build &amp; edit</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Pick a subject to manage its question bank and assemble quizzes, assignments,
-            daily activities and board exams. Objective questions auto-grade instantly.
+            Pick a subject to manage its question bank and assemble quizzes,
+            assignments, daily activities and board exams. Objective questions
+            auto-grade instantly.
           </p>
         </div>
         <AssessmentManager />

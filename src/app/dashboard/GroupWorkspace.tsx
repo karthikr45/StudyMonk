@@ -135,9 +135,9 @@ export default function GroupWorkspace({
   ];
 
   return (
-    <div className="card flex h-full flex-col">
+    <div className="card group-workspace flex h-full flex-col">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-base font-bold text-slate-800">{group.name}</h3>
+        <h3 className="text-xl font-bold text-slate-800">{group.name}</h3>
         <span className="pill">{members.length} members</span>
       </div>
 
@@ -342,7 +342,7 @@ function MembersManager({
                   <button
                     aria-label={`Remove ${m.user.fullName}`}
                     onClick={() => remove(m.user.id)}
-                    className="ml-1 text-slate-400 hover:text-red-600"
+                    className="ml-1 text-slate-500 hover:text-red-600"
                   >
                     ✕
                   </button>
@@ -466,8 +466,8 @@ function Chat({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ul
-        className="mb-3 flex-1 space-y-2 overflow-y-auto pr-1"
-        style={{ maxHeight: 360 }}
+        className="chat-feed mb-3 flex-1 space-y-4 overflow-y-auto pr-1"
+        style={{ maxHeight: 460, minHeight: 240 }}
       >
         {posts.length === 0 && (
           <p className="text-sm text-slate-400">No messages yet. Say hi 👋</p>
@@ -476,19 +476,27 @@ function Chat({
           const parent = p.parentId ? byId[p.parentId] : null;
           const mine = p.author.id === meId;
           return (
-            <li key={p.id} className="rounded-xl bg-slate-50 p-3">
+            <li key={p.id} className={`chat-bubble ${mine ? 'mine' : ''}`}>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="chat-avatar" aria-hidden="true">
+                  {p.author.fullName.slice(0, 1)}
+                </span>
+                <span className="text-xs font-semibold text-slate-700">
+                  {mine ? 'You' : p.author.fullName}
+                </span>
+              </div>
               {parent && (
                 <p className="mb-1 border-l-2 border-slate-300 pl-2 text-xs text-slate-400">
                   ↳ {parent.author.fullName}: {parent.body.slice(0, 60)}
                 </p>
               )}
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col items-start justify-between gap-2 sm:flex-row">
                 <p className="whitespace-pre-wrap break-words text-sm text-slate-800">
                   {p.body}
                 </p>
                 <div className="flex shrink-0 gap-1.5 text-xs">
                   <button
-                    className="text-slate-400 hover:text-brand-600"
+                    className="text-slate-500 hover:text-brand-600"
                     onClick={() => {
                       setReplyTo(p);
                       setEditing(null);
@@ -498,7 +506,7 @@ function Chat({
                   </button>
                   {mine && (
                     <button
-                      className="text-slate-400 hover:text-brand-600"
+                      className="text-slate-500 hover:text-brand-600"
                       onClick={() => startEdit(p)}
                     >
                       Edit
@@ -506,7 +514,7 @@ function Chat({
                   )}
                   {mine && (
                     <button
-                      className="text-slate-400 hover:text-red-600"
+                      className="text-slate-500 hover:text-red-600"
                       onClick={() => del(p)}
                     >
                       Delete
@@ -522,7 +530,15 @@ function Chat({
                 </p>
               )}
               <p className="mt-1 text-xs text-slate-400">
-                {p.author.fullName} · {new Date(p.createdAt).toLocaleString()}
+                {new Date(p.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                })}{' '}
+                ·{' '}
+                {new Date(p.createdAt).toLocaleTimeString(undefined, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
                 {p.editedAt ? ' · edited' : ''}
               </p>
             </li>
@@ -549,7 +565,7 @@ function Chat({
           </button>
         </div>
       )}
-      <form onSubmit={send} className="space-y-2">
+      <form onSubmit={send} className="chat-composer space-y-2">
         <div className="flex flex-wrap gap-1">
           {members
             .filter((m) => m.user.id !== meId)
@@ -566,10 +582,16 @@ function Chat({
         </div>
         <div className="flex gap-2">
           <textarea
-            rows={3}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
+            rows={2}
             aria-label="Message"
             className="input"
-            placeholder="Write a message. Tap a name above to mention them."
+            placeholder="Share a thought, ask a question…"
             value={msg}
             onChange={(e) => setMsg(e.target.value)}
           />
@@ -577,6 +599,9 @@ function Chat({
             {sending ? 'Sending…' : editing ? 'Save' : 'Send'}
           </button>
         </div>
+        <p className="text-xs text-slate-500">
+          Tap a name to mention · Ctrl / ⌘ + Enter to send
+        </p>
       </form>
     </div>
   );

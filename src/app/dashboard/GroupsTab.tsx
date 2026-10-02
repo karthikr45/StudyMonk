@@ -44,6 +44,7 @@ export default function GroupsTab({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [query, setQuery] = useState('');
   const open =
     groups.find((g) => g.id === initialGroupId && g.isMember) ?? null;
   const onErr = useCallback((e: unknown) => {
@@ -103,7 +104,7 @@ export default function GroupsTab({
   if (loading) return <p role="status">Loading your groups…</p>;
   if (loadError) return <LoadError message={loadError} retry={retry} />;
   return (
-    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[310px_minmax(0,1fr)]">
       <div className={`space-y-5 ${open ? 'hidden md:block' : ''}`}>
         {error && (
           <div className="flex items-start justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-2.5 text-sm text-red-700">
@@ -118,7 +119,7 @@ export default function GroupsTab({
           aria-expanded={creating}
           onClick={() => setCreating(!creating)}
         >
-          Create a study group
+          + Create a study group
         </button>
         {creating && (
           <div className="card">
@@ -159,7 +160,7 @@ export default function GroupsTab({
             <span className="text-brand-500">
               <IconUsers />
             </span>
-            Groups for your class &amp; school
+            Your study circles
           </div>
           {groups.length === 0 && (
             <div className="grid place-items-center py-8 text-center">
@@ -174,57 +175,80 @@ export default function GroupsTab({
               </p>
             </div>
           )}
+          <label className="sr-only" htmlFor="group-search">
+            Find a group
+          </label>
+          <input
+            id="group-search"
+            className="input mb-4"
+            type="search"
+            placeholder="Find your circle…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {groups.length > 0 &&
+            !groups.some((g) =>
+              g.name.toLowerCase().includes(query.toLowerCase()),
+            ) && (
+              <p role="status" className="text-sm text-slate-500">
+                No matching groups.
+              </p>
+            )}
           <ul className="space-y-2">
-            {groups.map((g) => (
-              <li
-                key={g.id}
-                className={`rounded-xl border p-3 ${open?.id === g.id ? 'border-brand-300 bg-brand-50/40' : 'border-slate-200'}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-800">
-                      {g.name}
-                    </p>
-                    {g.description && (
-                      <p className="text-xs text-slate-500">{g.description}</p>
-                    )}
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
-                      <span className="pill">
-                        {g.memberCount} member{g.memberCount === 1 ? '' : 's'}
-                      </span>{' '}
-                      by {g.createdBy.fullName}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    {g.isMember ? (
-                      <>
+            {groups
+              .filter((g) => g.name.toLowerCase().includes(query.toLowerCase()))
+              .map((g) => (
+                <li
+                  key={g.id}
+                  className={`rounded-xl border p-3 ${open?.id === g.id ? 'border-brand-300 bg-brand-50/40' : 'border-slate-200'}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {g.name}
+                      </p>
+                      {g.description && (
+                        <p className="text-xs text-slate-500">
+                          {g.description}
+                        </p>
+                      )}
+                      <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+                        <span className="pill">
+                          {g.memberCount} member{g.memberCount === 1 ? '' : 's'}
+                        </span>{' '}
+                        by {g.createdBy.fullName}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {g.isMember ? (
+                        <>
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => onSelect(g.id, 'chat')}
+                          >
+                            {open?.id === g.id ? 'Active' : 'Open →'}
+                          </button>
+                          <button
+                            className="text-xs text-slate-400 hover:text-red-600"
+                            disabled={busy}
+                            onClick={() => leave(g)}
+                          >
+                            Leave
+                          </button>
+                        </>
+                      ) : (
                         <button
-                          className="btn btn-sm"
-                          onClick={() => onSelect(g.id, 'chat')}
-                        >
-                          Open
-                        </button>
-                        <button
-                          className="text-xs text-slate-400 hover:text-red-600"
+                          className="btn-ghost btn-sm"
                           disabled={busy}
-                          onClick={() => leave(g)}
+                          onClick={() => join(g)}
                         >
-                          Leave
+                          Join
                         </button>
-                      </>
-                    ) : (
-                      <button
-                        className="btn-ghost btn-sm"
-                        disabled={busy}
-                        onClick={() => join(g)}
-                      >
-                        Join
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              ))}
           </ul>
         </div>
       </div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRemote } from '@/lib/client/useRemote';
 import LoadError from '@/components/LoadError';
 import NextSteps from './NextSteps';
+import FocusTimer from './FocusTimer';
 import { MeUser } from '@/lib/client/useAuth';
 import { IconBook, IconUsers, IconChevron } from '@/components/icons';
 
@@ -16,9 +17,6 @@ interface Subject {
   studentCount: number;
 }
 
-// Colour accents cycled across subject cards for a lively, professional grid.
-// Brand-family accents (teal + amber) so subject tiles stay differentiated
-// without leaving the StudyMonk palette.
 const accents = [
   'from-brand-600 to-brand-800',
   'from-brand-500 to-brand-700',
@@ -27,33 +25,6 @@ const accents = [
   'from-brand-400 to-brand-600',
   'from-brand-700 to-brand-500',
 ];
-
-function StatCard({
-  label,
-  value,
-  sub,
-  icon,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="card flex items-center gap-2 !p-3">
-      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
-        {icon}
-      </span>
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
-          {label}
-        </p>
-        <p className="text-lg font-bold text-slate-900">{value}</p>
-        {sub && <p className="text-xs text-slate-500">{sub}</p>}
-      </div>
-    </div>
-  );
-}
 
 export default function StudyTab({ user }: { user: MeUser }) {
   const { data, loading, error, retry } = useRemote<{
@@ -69,29 +40,17 @@ export default function StudyTab({ user }: { user: MeUser }) {
 
   return (
     <div className="space-y-6">
-      <NextSteps userId={user.id} />
-      {/* Context: Board + Class */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatCard
-          label="Board"
-          value={user.board?.name ?? '—'}
-          sub={user.board?.code?.toUpperCase()}
-          icon={<IconBook width={22} height={22} />}
-        />
-        <StatCard
-          label="Class"
-          value={user.class?.name ?? '—'}
-          sub={`Academic year ${user.academicYear ?? ''}`}
-          icon={<IconBook width={22} height={22} />}
-        />
-        <StatCard
-          label="Enrolled students"
-          value={`${classCount}`}
-          sub="across this board and class"
-          icon={<IconUsers width={22} height={22} />}
-        />
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <NextSteps userId={user.id} />
+        <FocusTimer key={user.id} userId={user.id} />
       </div>
-
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
+        <span className="pill-brand">
+          {user.board?.name} · {user.class?.name}
+        </span>
+        <span>{subjects.length} subjects to explore</span>
+        <span>{classCount} enrolled in your board & class</span>
+      </div>
       {/* Subjects */}
       <div>
         <div className="mb-3 flex items-center justify-between">
@@ -136,7 +95,7 @@ export default function StudyTab({ user }: { user: MeUser }) {
                 <Link
                   key={s.id}
                   href={`/dashboard/subject/${s.id}`}
-                  className="group card transition hover:-translate-y-0.5 hover:shadow-lift"
+                  className={`group subject-tile subject-tone-${i % 4}`}
                 >
                   <div className="flex items-start justify-between">
                     <span
@@ -146,7 +105,7 @@ export default function StudyTab({ user }: { user: MeUser }) {
                     </span>
                     <IconChevron className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-brand-500" />
                   </div>
-                  <h3 className="mt-4 text-base font-bold text-slate-900">
+                  <h3 className="mt-7 text-xl font-bold text-slate-900">
                     {s.name}
                   </h3>
                   <div className="mt-3 flex items-center gap-4 text-sm text-slate-500">
@@ -165,6 +124,12 @@ export default function StudyTab({ user }: { user: MeUser }) {
                         className="text-slate-400"
                       />
                       {s.studentCount} enrolled
+                    </span>
+                  </div>
+                  <div className="mt-5 border-t border-black/10 pt-3 text-sm font-semibold">
+                    Explore subject{' '}
+                    <span className="float-right transition group-hover:translate-x-1">
+                      ↗
                     </span>
                   </div>
                 </Link>

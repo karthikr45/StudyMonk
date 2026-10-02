@@ -29,9 +29,14 @@ export default function NextSteps({ userId }: { userId: string }) {
     data?.assessments.filter((a) => a.myAttempt?.status === 'NEEDS_REVIEW')
       .length ?? 0;
   return (
-    <div className="card">
-      <h2 className="text-lg font-bold">Your next step</h2>
-      <div className="mt-3 flex flex-wrap gap-3">
+    <div className="next-step-hero">
+      <span className="eyebrow">YOUR LEARNING, YOUR PACE</span>
+      <h2 className="mt-4 max-w-md text-3xl sm:text-4xl font-bold">
+        Small steps.
+        <br />
+        Big possibilities.
+      </h2>
+      <div className="relative z-10 mt-6 flex flex-wrap gap-3">
         {recent && (
           <Link
             className="btn"
@@ -55,7 +60,7 @@ export default function NextSteps({ userId }: { userId: string }) {
           </Link>
         )}
       </div>
-      <p className="mt-2 text-sm text-slate-600">
+      <p className="mt-4 max-w-sm text-sm text-teal-100">
         Choose a subject below to study at your own pace.
       </p>
     </div>
