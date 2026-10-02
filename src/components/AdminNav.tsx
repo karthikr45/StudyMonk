@@ -6,6 +6,7 @@ const destinations = [
   ['/admin/assessments', 'Assessments', '02'],
   ['/admin/groups', 'Study groups', '03'],
   ['/admin/analytics', 'Analytics', '04'],
+  ['/admin/schools', 'Schools', '05'],
 ];
 export default function AdminNav() {
   const path = usePathname();

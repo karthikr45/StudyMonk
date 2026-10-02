@@ -39,10 +39,19 @@ export const registerSchema = z.object({
   boardId: z.string().min(1),
   classId: z.string().min(1),
   academicYear,
-  schoolName: z.string().min(2).max(160),
+  schoolId: z.string().min(1, 'Select a school'),
 });
 
 // ---- Catalog (SUPER_ADMIN) --------------------------------------------------
+
+export const schoolSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2)
+    .max(160)
+    .transform((value) => value.replace(/\s+/g, ' ')),
+});
 
 export const boardSchema = z.object({
   name: z.string().min(2).max(80),

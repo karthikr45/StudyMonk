@@ -164,6 +164,118 @@ test(
           );
         },
       );
+      await t.test(
+        'school catalog is database-backed and only admins can add schools',
+        async () => {
+          const { GET: catalog } =
+            await import('../src/app/api/catalog/schools/route');
+          const { POST: addSchool } =
+            await import('../src/app/api/admin/schools/route');
+          const { POST: register } =
+            await import('../src/app/api/auth/register/route');
+          const initial = (await (await catalog()).json()).data.schools;
+          assert.ok(
+            initial.some(
+              (school: { name: string }) => school.name === 'TNR Excelencia',
+            ),
+          );
+          assert.equal(
+            (await addSchool(request('/schools', { name: `${prefix} School` })))
+              .status,
+            403,
+          );
+          let schoolId = '';
+          try {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { role: 'SUPER_ADMIN' },
+            });
+            const created = await addSchool(
+              request('/schools', { name: `  ${prefix}   School  ` }),
+            );
+            assert.equal(created.status, 201);
+            const school = (await created.json()).data.school;
+            schoolId = school.id;
+            assert.equal(school.name, `${prefix} School`);
+            assert.equal(
+              (
+                await addSchool(
+                  request('/schools', {
+                    name: `${prefix.toUpperCase()} SCHOOL`,
+                  }),
+                )
+              ).status,
+              409,
+            );
+            assert.ok(
+              (await (await catalog()).json()).data.schools.some(
+                (s: { id: string }) => s.id === schoolId,
+              ),
+            );
+            const body = {
+              email: `${prefix}-registered@example.test`,
+              password: 'TestOnlyPassword-2026',
+              fullName: 'School Test Student',
+              boardId: board.id,
+              classId: klass.id,
+              academicYear: '2026-2027',
+              schoolId,
+            };
+            assert.equal(
+              (
+                await register(
+                  request('/register', { ...body, schoolId: 'missing' }),
+                )
+              ).status,
+              422,
+            );
+            await prisma.school.update({
+              where: { id: schoolId },
+              data: { isActive: false },
+            });
+            assert.ok(
+              !(await (await catalog()).json()).data.schools.some(
+                (s: { id: string }) => s.id === schoolId,
+              ),
+            );
+            assert.equal(
+              (await register(request('/register', body))).status,
+              422,
+            );
+            await prisma.school.update({
+              where: { id: schoolId },
+              data: { isActive: true },
+            });
+            assert.equal(
+              (
+                await register(
+                  request('/register', {
+                    ...body,
+                    schoolName: 'Untrusted name',
+                  }),
+                )
+              ).status,
+              201,
+            );
+            const registered = await prisma.user.findUniqueOrThrow({
+              where: { email: body.email },
+            });
+            assert.equal(registered.schoolId, schoolId);
+            assert.equal(registered.schoolDisplay, school.name);
+            assert.equal(registered.schoolName, school.name.toLowerCase());
+          } finally {
+            await prisma.user.deleteMany({
+              where: { email: `${prefix}-registered@example.test` },
+            });
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { role: 'STUDENT' },
+            });
+            if (schoolId)
+              await prisma.school.delete({ where: { id: schoolId } });
+          }
+        },
+      );
       await t.test('resume retains deadline and revision', async () => {
         const resumed = await (
           await start(request('/start', {}), { params: { id: assessment.id } })

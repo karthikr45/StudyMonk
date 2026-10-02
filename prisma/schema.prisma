@@ -34,7 +34,9 @@ model User {
   classId       String?
   academicYear  String? // e.g. "2025-2026"
   schoolName    String? // normalized (trimmed, lower-cased) for matching
-  schoolDisplay String? // original school name as typed
+  schoolDisplay String? // canonical catalog display name for new registrations
+  schoolId      String?
+  school        School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
 
   board   Board? @relation(fields: [boardId], references: [id])
   class   Class? @relation(fields: [classId], references: [id])
@@ -564,4 +566,14 @@ model RateLimitBucket {
   count     Int      @default(1)
   expiresAt DateTime
   @@index([expiresAt])
+}
+
+model School {
+  id             String   @id @default(cuid())
+  name           String
+  normalizedName String   @unique
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  users          User[]
 }

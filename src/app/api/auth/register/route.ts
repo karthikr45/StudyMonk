@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 import { limitAuthRequest, consumeRateLimit } from '@/lib/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ok, fail, handleError } from '@/lib/http';
-import { registerSchema, normalizeSchool } from '@/lib/validation';
+import { registerSchema } from '@/lib/validation';
 import { hashPassword } from '@/lib/password';
 import { issueSession, setRefreshCookie, setAccessCookie } from '@/lib/session';
 
@@ -17,10 +17,17 @@ export async function POST(req: NextRequest) {
     await consumeRateLimit('register:email', body.email.toLowerCase(), 5);
 
     // Board + class must exist and be active (no hardcoded catalog).
-    const [board, klass] = await Promise.all([
+    const [board, klass, school] = await Promise.all([
       prisma.board.findFirst({ where: { id: body.boardId, isActive: true } }),
       prisma.class.findFirst({ where: { id: body.classId, isActive: true } }),
+      prisma.school.findFirst({ where: { id: body.schoolId, isActive: true } }),
     ]);
+    if (!school)
+      return fail(
+        'Select an available school from the list',
+        422,
+        'SCHOOL_INVALID',
+      );
     if (!board) return fail('Selected board not found', 422, 'BOARD_NOT_FOUND');
     if (!klass || klass.boardId !== board.id) {
       return fail(
@@ -44,8 +51,9 @@ export async function POST(req: NextRequest) {
         boardId: board.id,
         classId: klass.id,
         academicYear: body.academicYear,
-        schoolName: normalizeSchool(body.schoolName),
-        schoolDisplay: body.schoolName.trim(),
+        schoolId: school.id,
+        schoolName: school.normalizedName,
+        schoolDisplay: school.name,
       },
     });
 
