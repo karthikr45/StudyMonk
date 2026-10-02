@@ -1,5 +1,6 @@
 import {
   S3Client,
+  HeadObjectCommand,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
@@ -7,6 +8,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import { env } from './env';
+import { HttpError } from './http';
 
 let client: S3Client | null = null;
 
@@ -70,4 +72,41 @@ export async function getObjectBuffer(key: string): Promise<Buffer> {
   );
   const bytes = await res.Body!.transformToByteArray();
   return Buffer.from(bytes);
+}
+
+/** Verify object ownership namespace and uploaded metadata before registering it. */
+export async function verifyUploadedObject(
+  key: string,
+  prefix: string,
+  fileSize: number,
+  contentType: string,
+) {
+  if (
+    !key.startsWith(`${prefix}/`) ||
+    key.slice(prefix.length + 1).includes('/')
+  )
+    throw new HttpError(
+      'Upload does not belong to this user and destination',
+      422,
+      'INVALID_UPLOAD',
+    );
+  let head;
+  try {
+    head = await r2().send(
+      new HeadObjectCommand({ Bucket: env().R2_BUCKET_NAME, Key: key }),
+      { abortSignal: AbortSignal.timeout(10000) },
+    );
+  } catch {
+    throw new HttpError(
+      'Upload was not found. Finish uploading and retry.',
+      422,
+      'UPLOAD_NOT_FOUND',
+    );
+  }
+  if (head.ContentLength !== fileSize || head.ContentType !== contentType)
+    throw new HttpError(
+      'Uploaded file metadata does not match',
+      422,
+      'UPLOAD_MISMATCH',
+    );
 }

@@ -1,163 +1,225 @@
 'use client';
-
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/client/api';
-import { IconFile, IconBook, IconUsers } from '@/components/icons';
-
-interface Recent { title: string; subject: string; percent: number; score: number; maxScore: number; submittedAt: string }
-interface Subj { subject: string; avgPercent: number; attempts: number }
+import Link from 'next/link';
+import { useRemote } from '@/lib/client/useRemote';
+import LoadError from '@/components/LoadError';
+interface Subject {
+  id: string;
+  subject: string;
+  avgPercent: number;
+  attempts: number;
+}
 interface Analytics {
-  totals: { assessmentsTaken: number; available: number; avgPercent: number; subjectsStudied: number; activeDays: number };
+  totals: {
+    assessmentsTaken: number;
+    available: number;
+    gradedCount: number;
+    pendingCount: number;
+    avgPercent: number;
+    subjectsStudied: number;
+    activeDays: number;
+  };
   streak: number;
-  recent: Recent[];
-  bySubject: Subj[];
-  weakAreas: Subj[];
+  recent: {
+    id: string;
+    title: string;
+    subject: string;
+    percent: number;
+    score: number;
+    maxScore: number;
+    submittedAt: string;
+  }[];
+  bySubject: Subject[];
+  weakAreas: Subject[];
 }
-
-// Performance band → status colour (value is always shown, never colour-alone).
-function band(p: number) {
-  if (p >= 75) return { c: '#059669', bg: '#ecfdf5', label: 'Strong' };
-  if (p >= 40) return { c: '#d97706', bg: '#fffbeb', label: 'Fair' };
-  return { c: '#e11d48', bg: '#fff1f2', label: 'Needs work' };
+interface Leaderboard {
+  leaderboard: {
+    rank: number;
+    name: string;
+    points: number;
+    avgPercent: number;
+    isMe: boolean;
+  }[];
+  me: { rank: number } | null;
+  totalRanked: number;
 }
-
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="card">
-      <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-extrabold text-slate-900 tabular-nums">{value}</p>
-      {sub && <p className="text-xs text-slate-500">{sub}</p>}
-    </div>
-  );
+function band(percent: number) {
+  return percent >= 75
+    ? 'Strong'
+    : percent >= 40
+      ? 'Developing'
+      : 'Needs practice';
 }
-
-interface LbRow { rank: number; name: string; points: number; avgPercent: number; isMe: boolean }
-interface Leaderboard { leaderboard: LbRow[]; me: { rank: number; points: number } | null; totalRanked: number }
-
 export default function ProgressTab() {
-  const [d, setD] = useState<Analytics | null>(null);
-  const [lb, setLb] = useState<Leaderboard | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get<Analytics>('/api/content/analytics').then(setD).finally(() => setLoading(false));
-    api.get<Leaderboard>('/api/content/leaderboard').then(setLb).catch(() => {});
-  }, []);
-
-  if (loading) return <p className="text-sm text-slate-500">Loading your progress…</p>;
-  if (!d || d.totals.assessmentsTaken === 0)
+  const {
+    data: d,
+    loading,
+    error,
+    retry,
+  } = useRemote<Analytics>('/api/content/analytics');
+  const ranking = useRemote<Leaderboard>('/api/content/leaderboard');
+  if (loading) return <p role="status">Loading your progress…</p>;
+  if (error || !d)
     return (
-      <div className="card grid place-items-center py-16 text-center">
-        <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-500"><IconFile width={24} height={24} /></span>
-        <p className="text-sm font-medium text-slate-700">No progress yet</p>
-        <p className="mt-1 text-sm text-slate-400">Take a quiz or assignment and your analytics will appear here.</p>
-      </div>
+      <LoadError message={error ?? 'Progress unavailable.'} retry={retry} />
     );
-
-  const maxRecent = Math.max(...d.recent.map((r) => r.percent), 1);
-
   return (
-    <div className="space-y-6">
-      {/* Stat tiles */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Tile label="Average score" value={`${d.totals.avgPercent}%`} sub="across graded work" />
-        <Tile label="Assessments" value={`${d.totals.assessmentsTaken}`} sub={`of ${d.totals.available} available`} />
-        <Tile label="Study streak" value={`${d.streak}🔥`} sub={`${d.totals.activeDays} active days`} />
-        <Tile label="Subjects" value={`${d.totals.subjectsStudied}`} sub="attempted" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Scores over time */}
-        <div className="card">
-          <h3 className="section-title mb-4"><span className="text-brand-500"><IconFile /></span>Recent scores</h3>
-          {d.recent.length === 0 ? <p className="text-sm text-slate-400">No graded attempts yet.</p> : (
-            <div className="relative">
-              {/* 40% pass reference line */}
-              <div className="flex items-end gap-2" style={{ height: 160 }}>
-                {d.recent.map((r, i) => {
-                  const h = Math.max((r.percent / 100) * 150, 4);
-                  const b = band(r.percent);
-                  return (
-                    <div key={i} className="flex flex-1 flex-col items-center justify-end" title={`${r.title} — ${r.percent}% (${r.score}/${r.maxScore})`}>
-                      <span className="mb-1 text-[10px] font-semibold tabular-nums text-slate-500">{r.percent}</span>
-                      <div className="w-full rounded-t" style={{ height: h, background: b.c, minWidth: 8 }} />
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-2 border-t border-dashed border-slate-200 pt-1 text-[11px] text-slate-400">most recent {d.recent.length} attempts · hover a bar for detail</div>
-            </div>
-          )}
-        </div>
-
-        {/* By subject */}
-        <div className="card">
-          <h3 className="section-title mb-4"><span className="text-brand-500"><IconBook /></span>Average by subject</h3>
-          <div className="space-y-3">
-            {d.bySubject.map((s) => {
-              const b = band(s.avgPercent);
-              return (
-                <div key={s.subject}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-slate-700">{s.subject} <span className="text-xs text-slate-400">· {s.attempts} taken</span></span>
-                    <span className="font-semibold tabular-nums" style={{ color: b.c }}>{s.avgPercent}%</span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full" style={{ width: `${s.avgPercent}%`, background: b.c }} />
-                  </div>
-                </div>
-              );
-            })}
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          [
+            'Average score',
+            d.totals.gradedCount ? `${d.totals.avgPercent}%` : 'Not graded yet',
+            'Across graded assessments',
+          ],
+          [
+            'Submitted',
+            `${d.totals.assessmentsTaken}`,
+            `${d.totals.pendingCount} awaiting review`,
+          ],
+          [
+            'Study streak',
+            `${d.streak} days`,
+            `${d.totals.activeDays} active days · UTC`,
+          ],
+          [
+            'Subjects assessed',
+            `${d.totals.subjectsStudied}`,
+            'With graded work',
+          ],
+        ].map(([label, value, detail]) => (
+          <div className="card" key={label}>
+            <h2 className="text-sm text-slate-600">{label}</h2>
+            <p className="mt-2 text-xl font-bold">{value}</p>
+            <p className="mt-1 text-sm text-slate-600">{detail}</p>
           </div>
-        </div>
+        ))}
       </div>
-
-      {/* Class leaderboard */}
-      {lb && lb.leaderboard.length > 0 && (
+      {!d.totals.gradedCount && (
         <div className="card">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="section-title"><span className="text-brand-500"><IconUsers /></span>Class leaderboard</h3>
-            {lb.me && <span className="pill-brand">You&apos;re #{lb.me.rank} of {lb.totalRanked}</span>}
-          </div>
-          <ul className="divide-y divide-slate-100">
-            {lb.leaderboard.map((r) => (
-              <li key={r.rank} className={`flex items-center justify-between py-2 ${r.isMe ? 'rounded-lg bg-brand-50 px-2' : ''}`}>
-                <span className="flex items-center gap-3">
-                  <span className="w-6 text-center text-sm font-bold tabular-nums text-slate-400">
-                    {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}
+          <h2 className="font-bold">
+            {d.totals.pendingCount
+              ? 'Your work is awaiting review'
+              : 'Start building your progress'}
+          </h2>
+          <p className="my-2 text-sm">
+            Study activity appears here as you open chapters. Scores appear
+            after grading.
+          </p>
+          <Link className="btn-ghost" href="/dashboard?tab=assess">
+            Browse assessments
+          </Link>
+        </div>
+      )}
+      {d.recent.length > 0 && (
+        <div className="card">
+          <h2 className="text-lg font-bold">Recent results</h2>
+          <ul className="mt-3 divide-y">
+            {d.recent.map((r) => (
+              <li key={r.id} className="py-3">
+                <Link
+                  className="flex flex-wrap items-center justify-between gap-2 underline-offset-4 hover:underline"
+                  href={`/dashboard/attempt/${r.id}/result`}
+                >
+                  <span>
+                    <b>{r.title}</b>
+                    <span className="block text-sm text-slate-600">
+                      {r.subject} ·{' '}
+                      {new Date(r.submittedAt).toLocaleDateString()}
+                    </span>
                   </span>
-                  <span className={`text-sm ${r.isMe ? 'font-semibold text-brand-700' : 'text-slate-700'}`}>{r.name}{r.isMe ? ' (you)' : ''}</span>
-                </span>
-                <span className="flex items-center gap-3 text-sm">
-                  <span className="tabular-nums text-slate-400">{r.avgPercent}%</span>
-                  <span className="font-bold tabular-nums text-slate-800">{r.points} pts</span>
-                </span>
+                  <span>
+                    {r.score}/{r.maxScore} · {r.percent}%
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
         </div>
       )}
-
-      {/* Weak areas */}
-      <div className="card">
-        <h3 className="section-title mb-3"><span className="text-brand-500"><IconUsers /></span>Focus areas</h3>
-        {d.weakAreas.every((w) => w.avgPercent >= 75) ? (
-          <p className="text-sm text-emerald-600">You&apos;re strong across the board — keep it up! 🎉</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {d.weakAreas.map((w) => {
-              const b = band(w.avgPercent);
-              return (
-                <div key={w.subject} className="rounded-xl border p-3" style={{ borderColor: b.c + '40', background: b.bg }}>
-                  <p className="text-sm font-semibold text-slate-800">{w.subject}</p>
-                  <p className="text-xs" style={{ color: b.c }}>{b.label} · avg {w.avgPercent}%</p>
-                  <p className="mt-1 text-xs text-slate-500">Revise this subject and retake practice quizzes.</p>
-                </div>
-              );
-            })}
+      {d.bySubject.length > 0 && (
+        <div className="card">
+          <h2 className="text-lg font-bold">By subject</h2>
+          <ul className="mt-3 space-y-4">
+            {d.bySubject.map((s) => (
+              <li key={s.id}>
+                <Link
+                  className="font-semibold underline"
+                  href={`/dashboard/subject/${s.id}`}
+                >
+                  {s.subject}
+                </Link>
+                <p className="text-sm">
+                  {s.avgPercent}% · {band(s.avgPercent)} · {s.attempts} graded
+                </p>
+                <progress
+                  aria-label={`${s.subject} average score`}
+                  className="mt-1 h-3 w-full accent-teal-700"
+                  max={100}
+                  value={s.avgPercent}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {d.weakAreas.length > 0 && (
+        <div className="card">
+          <h2 className="text-lg font-bold">What to study next</h2>
+          {d.weakAreas.every((s) => s.avgPercent >= 75) ? (
+            <p className="mt-2">
+              Your graded subjects are strong. Keep practising with new
+              assessments.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {d.weakAreas
+                .filter((s) => s.avgPercent < 75)
+                .map((s) => (
+                  <li key={s.id}>
+                    <Link
+                      className="btn-ghost"
+                      href={`/dashboard/subject/${s.id}`}
+                    >
+                      Revise {s.subject} · {s.avgPercent}%
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {ranking.error ? (
+        <LoadError message="Leaderboard unavailable." retry={ranking.retry} />
+      ) : (
+        ranking.data &&
+        ranking.data.leaderboard.length > 0 && (
+          <div className="card">
+            <h2 className="text-lg font-bold">Board/class leaderboard</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Total marks earned across graded assessments; includes other
+              schools in your board/class.{' '}
+              {ranking.data.me &&
+                `You are #${ranking.data.me.rank} of ${ranking.data.totalRanked}.`}
+            </p>
+            <ol className="mt-3 divide-y">
+              {ranking.data.leaderboard.map((r) => (
+                <li
+                  key={r.rank}
+                  className={`flex justify-between gap-3 py-3 ${r.isMe ? 'font-bold text-teal-800' : ''}`}
+                >
+                  <span>
+                    {r.rank}. {r.name}
+                    {r.isMe ? ' (you)' : ''}
+                  </span>
+                  <span>
+                    {r.points} pts · {r.avgPercent}%
+                  </span>
+                </li>
+              ))}
+            </ol>
           </div>
-        )}
-      </div>
+        )
+      )}
     </div>
   );
 }

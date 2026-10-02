@@ -7,11 +7,17 @@ import { groupResourcePresignSchema } from '@/lib/validation';
 import { buildStorageKey, presignUpload } from '@/lib/r2';
 
 // Presigned PUT URL for a member to upload a study file directly to R2.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
   try {
-    await requireGroupMember(req, params.id);
+    const { auth } = await requireGroupMember(req, params.id);
     const body = groupResourcePresignSchema.parse(await req.json());
-    const storageKey = buildStorageKey(`groups/${params.id}`, body.fileName);
+    const storageKey = buildStorageKey(
+      `groups/${params.id}/${auth.id}`,
+      body.fileName,
+    );
     const uploadUrl = await presignUpload(storageKey, body.contentType);
     return ok({ uploadUrl, storageKey });
   } catch (err) {

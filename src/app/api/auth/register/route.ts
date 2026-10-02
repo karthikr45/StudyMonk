@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
+import { limitAuthRequest, consumeRateLimit } from '@/lib/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ok, fail, handleError } from '@/lib/http';
 import { registerSchema, normalizeSchool } from '@/lib/validation';
@@ -11,7 +12,9 @@ import { issueSession, setRefreshCookie, setAccessCookie } from '@/lib/session';
 // against the DB so nothing is trusted blindly.
 export async function POST(req: NextRequest) {
   try {
+    await limitAuthRequest(req, 'register');
     const body = registerSchema.parse(await req.json());
+    await consumeRateLimit('register:email', body.email.toLowerCase(), 5);
 
     // Board + class must exist and be active (no hardcoded catalog).
     const [board, klass] = await Promise.all([
@@ -20,7 +23,11 @@ export async function POST(req: NextRequest) {
     ]);
     if (!board) return fail('Selected board not found', 422, 'BOARD_NOT_FOUND');
     if (!klass || klass.boardId !== board.id) {
-      return fail('Selected class is not valid for this board', 422, 'CLASS_INVALID');
+      return fail(
+        'Selected class is not valid for this board',
+        422,
+        'CLASS_INVALID',
+      );
     }
 
     const existing = await prisma.user.findUnique({

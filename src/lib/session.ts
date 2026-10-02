@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import { env } from './env';
-import {
-  signAccessToken,
-  generateRefreshToken,
-  hashRefreshToken,
-} from './jwt';
-import type { Role } from '@prisma/client';
+import { HttpError } from './http';
+import { signAccessToken, generateRefreshToken, hashRefreshToken } from './jwt';
+import type { Role, Prisma } from '@prisma/client';
 
 import { ACCESS_COOKIE } from './auth';
 
@@ -24,12 +21,15 @@ interface IssueInput {
  * Create a DB-backed refresh session and mint an access token. Returns the
  * access token plus the raw refresh token (to be set as an httpOnly cookie).
  */
-export async function issueSession(input: IssueInput) {
+export async function issueSession(
+  input: IssueInput,
+  db: Prisma.TransactionClient = prisma,
+) {
   const refreshToken = generateRefreshToken();
   const refreshTokenHash = hashRefreshToken(refreshToken);
   const expiresAt = new Date(Date.now() + env().REFRESH_TOKEN_TTL * 1000);
 
-  await prisma.session.create({
+  await db.session.create({
     data: {
       userId: input.userId,
       refreshTokenHash,
@@ -50,11 +50,25 @@ export async function issueSession(input: IssueInput) {
 
 /** Rotate: revoke the old session row and create a fresh one. */
 export async function rotateSession(oldSessionId: string, input: IssueInput) {
-  await prisma.session.update({
-    where: { id: oldSessionId },
-    data: { revokedAt: new Date() },
+  return prisma.$transaction(async (tx) => {
+    const claimed = await tx.session.updateMany({
+      where: {
+        id: oldSessionId,
+        userId: input.userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+        user: { isActive: true },
+      },
+      data: { revokedAt: new Date() },
+    });
+    if (claimed.count !== 1)
+      throw new HttpError(
+        'Refresh token is invalid or expired',
+        401,
+        'REFRESH_INVALID',
+      );
+    return issueSession(input, tx);
   });
-  return issueSession(input);
 }
 
 export function setRefreshCookie(res: NextResponse, token: string) {

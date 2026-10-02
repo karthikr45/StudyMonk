@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { z } from 'zod';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { guard } from '@/lib/auth';
@@ -27,7 +28,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const auth = await guard(req);
-    await prisma.notification.updateMany({ where: { userId: auth.id, read: false }, data: { read: true } });
+    const body = z
+      .union([
+        z.object({ id: z.string().min(1) }),
+        z.object({ all: z.literal(true) }),
+      ])
+      .parse(await req.json());
+    await prisma.notification.updateMany({
+      where: {
+        userId: auth.id,
+        read: false,
+        ...('id' in body ? { id: body.id } : {}),
+      },
+      data: { read: true },
+    });
     return ok({ ok: true });
   } catch (err) {
     return handleError(err);

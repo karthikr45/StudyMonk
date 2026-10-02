@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
+import { limitAuthRequest, consumeRateLimit } from '@/lib/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ok, fail, handleError } from '@/lib/http';
 import { hashRefreshToken } from '@/lib/jwt';
@@ -15,8 +16,10 @@ import {
 // Public bootstrap route: the refresh cookie itself is the credential.
 export async function POST(req: NextRequest) {
   try {
+    await limitAuthRequest(req, 'refresh');
     const raw = req.cookies.get(REFRESH_COOKIE_NAME)?.value;
     if (!raw) return fail('No refresh token', 401, 'NO_REFRESH');
+    await consumeRateLimit('refresh:token', raw, 20);
 
     const session = await prisma.session.findUnique({
       where: { refreshTokenHash: hashRefreshToken(raw) },
@@ -29,7 +32,11 @@ export async function POST(req: NextRequest) {
       session.expiresAt < new Date() ||
       !session.user.isActive
     ) {
-      return fail('Refresh token is invalid or expired', 401, 'REFRESH_INVALID');
+      return fail(
+        'Refresh token is invalid or expired',
+        401,
+        'REFRESH_INVALID',
+      );
     }
 
     const { accessToken, refreshToken } = await rotateSession(session.id, {

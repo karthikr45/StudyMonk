@@ -17,22 +17,39 @@ export async function GET(
     const auth = await guard(req, { role: 'STUDENT' });
     const attempt = await ownAttempt(params.id, auth.id);
     if (attempt.status === 'IN_PROGRESS') {
-      return fail('This attempt has not been submitted yet', 409, 'NOT_SUBMITTED');
+      return fail(
+        'This attempt has not been submitted yet',
+        409,
+        'NOT_SUBMITTED',
+      );
     }
 
     const assessment = await prisma.assessment.findUnique({
       where: { id: attempt.assessmentId },
-      select: { id: true, title: true, type: true, totalMarks: true, resultsPublished: true },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        totalMarks: true,
+        resultsPublished: true,
+      },
     });
-    const released = attempt.status === 'GRADED' || !!assessment?.resultsPublished;
+    const released =
+      attempt.status === 'GRADED' || !!assessment?.resultsPublished;
 
     const items = await prisma.assessmentQuestion.findMany({
       where: { assessmentId: attempt.assessmentId },
       orderBy: { order: 'asc' },
-      include: { question: { include: { options: { orderBy: { order: 'asc' } } } } },
+      include: {
+        question: { include: { options: { orderBy: { order: 'asc' } } } },
+      },
     });
     const answers = new Map(
-      (await prisma.attemptAnswer.findMany({ where: { attemptId: attempt.id } })).map((a) => [a.questionId, a]),
+      (
+        await prisma.attemptAnswer.findMany({
+          where: { attemptId: attempt.id },
+        })
+      ).map((a) => [a.questionId, a]),
     );
 
     const questions = items.map((it) => {
@@ -46,12 +63,17 @@ export async function GET(
         yourOptionIds: ans?.selectedOptionIds ?? [],
         yourText: ans?.textAnswer ?? null,
         yourNumeric: ans?.numericAnswer ?? null,
-        awardedMarks: released ? ans?.awardedMarks ?? 0 : null,
-        isCorrect: released ? ans?.isCorrect ?? null : null,
-        feedback: released ? ans?.feedback ?? null : null,
-        options: q.options.map((o) => ({ id: o.id, text: o.text, isCorrect: released ? o.isCorrect : undefined })),
+        awardedMarks: released ? (ans?.awardedMarks ?? 0) : null,
+        isCorrect: released ? (ans?.isCorrect ?? null) : null,
+        feedback: released ? (ans?.feedback ?? null) : null,
+        options: q.options.map((o) => ({
+          id: o.id,
+          text: o.text,
+          isCorrect: released ? o.isCorrect : undefined,
+        })),
         explanation: released ? q.explanation : null,
         modelAnswer: released ? q.modelAnswer : null,
+        numericAnswer: released ? q.numericAnswer : null,
       };
     });
 

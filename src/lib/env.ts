@@ -7,8 +7,12 @@ import { z } from 'zod';
 const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
-  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be >= 32 chars'),
-  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be >= 32 chars'),
+  JWT_ACCESS_SECRET: z
+    .string()
+    .min(32, 'JWT_ACCESS_SECRET must be >= 32 chars'),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(32, 'JWT_REFRESH_SECRET must be >= 32 chars'),
   ACCESS_TOKEN_TTL: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL: z.coerce.number().int().positive().default(604800),
 
@@ -20,7 +24,9 @@ const schema = z.object({
   R2_BUCKET_NAME: z.string().min(1),
   R2_ENDPOINT: z.string().url(),
 
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
 
   // ---- AI provider (optional; open-source, pluggable) ----
   // AI_PROVIDER=none disables AI (engine runs manual-only).
@@ -29,7 +35,10 @@ const schema = z.object({
   // Ollama (local, open-source)
   OLLAMA_URL: z.string().url().optional(),
   // OpenAI-compatible open-model server
-  AI_BASE_URL: z.string().url().optional(),
+  AI_BASE_URL: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().url().optional(),
+  ),
   AI_API_KEY: z.string().optional(),
 });
 

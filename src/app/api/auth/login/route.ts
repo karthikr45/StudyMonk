@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
+import { limitAuthRequest, consumeRateLimit } from '@/lib/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ok, fail, handleError } from '@/lib/http';
 import { loginSchema } from '@/lib/validation';
@@ -11,7 +12,9 @@ import { issueSession, setRefreshCookie, setAccessCookie } from '@/lib/session';
 // can authenticate. Protect abuse at the edge (Cloudflare/WAF rate limiting).
 export async function POST(req: NextRequest) {
   try {
+    await limitAuthRequest(req, 'login');
     const body = loginSchema.parse(await req.json());
+    await consumeRateLimit('login:email', body.email.toLowerCase(), 10);
 
     const user = await prisma.user.findUnique({
       where: { email: body.email.toLowerCase() },
@@ -21,7 +24,10 @@ export async function POST(req: NextRequest) {
     // signal, and give a single generic error for both cases.
     const validPassword = user
       ? await verifyPassword(body.password, user.passwordHash)
-      : await verifyPassword(body.password, '$2a$12$invalidinvalidinvalidinvalidinv');
+      : await verifyPassword(
+          body.password,
+          '$2a$12$invalidinvalidinvalidinvalidinv',
+        );
 
     if (!user || !validPassword || !user.isActive) {
       return fail('Invalid credentials', 401, 'INVALID_CREDENTIALS');

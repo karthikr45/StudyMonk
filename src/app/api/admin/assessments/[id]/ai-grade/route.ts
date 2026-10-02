@@ -19,22 +19,46 @@ export async function POST(
   try {
     await guard(req, { role: 'SUPER_ADMIN' });
     const provider = aiProvider();
-    if (!provider.enabled) return fail('AI is not configured.', 400, 'AI_DISABLED');
+    if (!provider.enabled)
+      return fail('AI is not configured.', 400, 'AI_DISABLED');
 
     // Per-assessment marks for each question.
     const items = await prisma.assessmentQuestion.findMany({
       where: { assessmentId: params.id },
-      include: { question: { select: { id: true, type: true, prompt: true, modelAnswer: true, rubric: true } } },
+      include: {
+        question: {
+          select: {
+            id: true,
+            type: true,
+            prompt: true,
+            modelAnswer: true,
+            rubric: true,
+          },
+        },
+      },
     });
     const marksById = new Map(items.map((i) => [i.questionId, i.marks]));
 
     const pending = await prisma.attemptAnswer.findMany({
       where: {
-        attempt: { assessmentId: params.id },
+        attempt: {
+          assessmentId: params.id,
+          status: { in: ['SUBMITTED', 'NEEDS_REVIEW'] },
+        },
         gradedBy: null,
         question: { type: { in: ['SHORT', 'LONG'] } },
       },
-      include: { question: { select: { id: true, type: true, prompt: true, modelAnswer: true, rubric: true } } },
+      include: {
+        question: {
+          select: {
+            id: true,
+            type: true,
+            prompt: true,
+            modelAnswer: true,
+            rubric: true,
+          },
+        },
+      },
     });
 
     let graded = 0;
@@ -68,14 +92,22 @@ export async function POST(
 
     // Recompute affected attempts. Low-confidence AI answers keep NEEDS_REVIEW.
     for (const attemptId of affected) {
-      const answers = await prisma.attemptAnswer.findMany({ where: { attemptId } });
+      const answers = await prisma.attemptAnswer.findMany({
+        where: { attemptId },
+      });
       const score = answers.reduce((n, a) => n + a.awardedMarks, 0);
       const unresolved = answers.some(
-        (a) => a.gradedBy === null || (a.gradedBy === 'AI' && (a.confidence ?? 0) < CONFIDENCE_THRESHOLD),
+        (a) =>
+          a.gradedBy === null ||
+          (a.gradedBy === 'AI' && (a.confidence ?? 0) < CONFIDENCE_THRESHOLD),
       );
       await prisma.attempt.update({
         where: { id: attemptId },
-        data: { score, status: unresolved ? 'NEEDS_REVIEW' : 'GRADED', gradedAt: unresolved ? null : new Date() },
+        data: {
+          score,
+          status: unresolved ? 'NEEDS_REVIEW' : 'GRADED',
+          gradedAt: unresolved ? null : new Date(),
+        },
       });
     }
 

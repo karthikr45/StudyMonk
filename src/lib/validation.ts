@@ -75,7 +75,11 @@ export const presignUploadSchema = z.object({
   chapterId: z.string().min(1),
   fileName: z.string().min(1).max(255),
   contentType: z.string().min(1).max(160),
-  fileSize: z.coerce.number().int().positive().max(1024 * 1024 * 1024), // <= 1 GB
+  fileSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(1024 * 1024 * 1024), // <= 1 GB
 });
 
 export const materialSchema = z.object({
@@ -85,7 +89,11 @@ export const materialSchema = z.object({
   type: z.enum(['PDF', 'VIDEO', 'IMAGE', 'DOCUMENT', 'OTHER']).optional(),
   storageKey: z.string().min(1),
   fileName: z.string().min(1).max(255),
-  fileSize: z.coerce.number().int().positive(),
+  fileSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(200 * 1024 * 1024),
   contentType: z.string().min(1).max(160),
 });
 
@@ -111,25 +119,49 @@ export const groupResourceSchema = z.object({
   title: z.string().min(1).max(200),
   storageKey: z.string().min(1),
   fileName: z.string().min(1).max(255),
-  fileSize: z.coerce.number().int().positive(),
+  fileSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(200 * 1024 * 1024),
   contentType: z.string().min(1).max(160),
 });
 
 export const groupResourcePresignSchema = z.object({
   fileName: z.string().min(1).max(255),
   contentType: z.string().min(1).max(160),
-  fileSize: z.coerce.number().int().positive().max(200 * 1024 * 1024),
+  fileSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(200 * 1024 * 1024),
 });
 
 export const cardSetSchema = z.object({
   title: z.string().min(1).max(160),
-  cards: z.array(z.object({ front: z.string().min(1).max(2000), back: z.string().min(1).max(2000) })).min(1).max(100),
+  cards: z
+    .array(
+      z.object({
+        front: z.string().min(1).max(2000),
+        back: z.string().min(1).max(2000),
+      }),
+    )
+    .min(1)
+    .max(100),
 });
 
 export const groupPollSchema = z.object({
   type: z.enum(['POLL', 'QUIZ']),
   question: z.string().min(2).max(500),
-  options: z.array(z.object({ text: z.string().min(1).max(300), isCorrect: z.boolean().optional() })).min(2).max(8),
+  options: z
+    .array(
+      z.object({
+        text: z.string().min(1).max(300),
+        isCorrect: z.boolean().optional(),
+      }),
+    )
+    .min(2)
+    .max(8),
 });
 
 export const votePollSchema = z.object({ optionId: z.string().min(1) });
@@ -140,7 +172,13 @@ export const addMemberSchema = z.object({
 
 // ---- Assessment engine -----------------------------------------------------
 
-export const questionTypeEnum = z.enum(['MCQ', 'TRUE_FALSE', 'NUMERIC', 'SHORT', 'LONG']);
+export const questionTypeEnum = z.enum([
+  'MCQ',
+  'TRUE_FALSE',
+  'NUMERIC',
+  'SHORT',
+  'LONG',
+]);
 export const difficultyEnum = z.enum(['EASY', 'MEDIUM', 'HARD']);
 
 export const optionSchema = z.object({
@@ -169,12 +207,24 @@ export const questionSchema = z
     if (v.type === 'MCQ' || v.type === 'TRUE_FALSE') {
       const opts = v.options ?? [];
       if (opts.length < 2)
-        ctx.addIssue({ code: 'custom', message: 'Add at least 2 options', path: ['options'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Add at least 2 options',
+          path: ['options'],
+        });
       if (!opts.some((o) => o.isCorrect))
-        ctx.addIssue({ code: 'custom', message: 'Mark one option correct', path: ['options'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Mark one option correct',
+          path: ['options'],
+        });
     }
     if (v.type === 'NUMERIC' && v.numericAnswer === undefined)
-      ctx.addIssue({ code: 'custom', message: 'Provide the numeric answer', path: ['numericAnswer'] });
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Provide the numeric answer',
+        path: ['numericAnswer'],
+      });
   });
 
 // Editing an existing bank question: every field optional (a plain "approve"
@@ -198,15 +248,35 @@ export const questionEditSchema = z
     if (v.type === 'MCQ' || v.type === 'TRUE_FALSE') {
       const opts = v.options ?? [];
       if (opts.length < 2)
-        ctx.addIssue({ code: 'custom', message: 'Add at least 2 options', path: ['options'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Add at least 2 options',
+          path: ['options'],
+        });
       if (!opts.some((o) => o.isCorrect))
-        ctx.addIssue({ code: 'custom', message: 'Mark one option correct', path: ['options'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Mark one option correct',
+          path: ['options'],
+        });
     }
-    if (v.type === 'NUMERIC' && (v.numericAnswer === undefined || v.numericAnswer === null))
-      ctx.addIssue({ code: 'custom', message: 'Provide the numeric answer', path: ['numericAnswer'] });
+    if (
+      v.type === 'NUMERIC' &&
+      (v.numericAnswer === undefined || v.numericAnswer === null)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Provide the numeric answer',
+        path: ['numericAnswer'],
+      });
   });
 
-export const assessmentTypeEnum = z.enum(['DAILY', 'QUIZ', 'ASSIGNMENT', 'EXAM']);
+export const assessmentTypeEnum = z.enum([
+  'DAILY',
+  'QUIZ',
+  'ASSIGNMENT',
+  'EXAM',
+]);
 
 export const assessmentSchema = z.object({
   type: assessmentTypeEnum,
@@ -214,8 +284,17 @@ export const assessmentSchema = z.object({
   chapterId: z.string().min(1).nullable().optional(),
   title: z.string().min(2).max(200),
   description: z.string().max(2000).optional(),
-  timeLimitSec: z.coerce.number().int().min(30).max(4 * 3600).nullable().optional(),
-  questionIds: z.array(z.string().min(1)).min(1, 'Add at least one question').max(100),
+  timeLimitSec: z.coerce
+    .number()
+    .int()
+    .min(30)
+    .max(4 * 3600)
+    .nullable()
+    .optional(),
+  questionIds: z
+    .array(z.string().min(1))
+    .min(1, 'Add at least one question')
+    .max(100),
 });
 
 // Editing an existing assessment. `questionIds` (replace the question set) is
@@ -224,13 +303,24 @@ export const assessmentEditSchema = z.object({
   type: assessmentTypeEnum.optional(),
   title: z.string().min(2).max(200).optional(),
   description: z.string().max(2000).nullable().optional(),
-  timeLimitSec: z.coerce.number().int().min(30).max(4 * 3600).nullable().optional(),
+  timeLimitSec: z.coerce
+    .number()
+    .int()
+    .min(30)
+    .max(4 * 3600)
+    .nullable()
+    .optional(),
   status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
   resultsPublished: z.boolean().optional(),
-  questionIds: z.array(z.string().min(1)).min(1, 'Add at least one question').max(100).optional(),
+  questionIds: z
+    .array(z.string().min(1))
+    .min(1, 'Add at least one question')
+    .max(100)
+    .optional(),
 });
 
 export const submitAnswersSchema = z.object({
+  revision: z.number().int().min(0),
   answers: z
     .array(
       z.object({
@@ -255,8 +345,14 @@ export const generateSchema = z.object({
       SHORT: z.coerce.number().int().min(0).max(20).optional(),
       LONG: z.coerce.number().int().min(0).max(20).optional(),
     })
-    .refine((c) => Object.values(c).reduce((n, v) => n + (v ?? 0), 0) > 0, 'Request at least one question')
-    .refine((c) => Object.values(c).reduce((n, v) => n + (v ?? 0), 0) <= 25, 'At most 25 questions per generation'),
+    .refine(
+      (c) => Object.values(c).reduce((n, v) => n + (v ?? 0), 0) > 0,
+      'Request at least one question',
+    )
+    .refine(
+      (c) => Object.values(c).reduce((n, v) => n + (v ?? 0), 0) <= 25,
+      'At most 25 questions per generation',
+    ),
 });
 
 export const gradeAnswerSchema = z.object({

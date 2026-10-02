@@ -4,16 +4,25 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ok, handleError } from '@/lib/http';
 import { requireGroupMember, notifyGroupMembers } from '@/lib/groups';
+import { verifyUploadedObject } from '@/lib/r2';
 import { groupResourceSchema } from '@/lib/validation';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
   try {
     await requireGroupMember(req, params.id);
     const resources = await prisma.groupResource.findMany({
       where: { groupId: params.id },
       orderBy: { createdAt: 'desc' },
       select: {
-        id: true, title: true, fileName: true, fileSize: true, contentType: true, createdAt: true,
+        id: true,
+        title: true,
+        fileName: true,
+        fileSize: true,
+        contentType: true,
+        createdAt: true,
         uploader: { select: { id: true, fullName: true } },
       },
     });
@@ -23,15 +32,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
   try {
     const { auth, group } = await requireGroupMember(req, params.id);
     const body = groupResourceSchema.parse(await req.json());
+    await verifyUploadedObject(
+      body.storageKey,
+      `groups/${params.id}/${auth.id}`,
+      body.fileSize,
+      body.contentType,
+    );
     const resource = await prisma.groupResource.create({
       data: { groupId: params.id, uploaderId: auth.id, ...body },
-      select: { id: true, title: true, fileName: true, fileSize: true, createdAt: true },
+      select: {
+        id: true,
+        title: true,
+        fileName: true,
+        fileSize: true,
+        createdAt: true,
+      },
     });
-    await notifyGroupMembers({ groupId: params.id, groupName: group.name, actorId: auth.id, type: 'FILE', tab: 'files', excerpt: body.title });
+    await notifyGroupMembers({
+      groupId: params.id,
+      groupName: group.name,
+      actorId: auth.id,
+      type: 'FILE',
+      tab: 'files',
+      excerpt: body.title,
+    });
     return ok({ resource }, 201);
   } catch (err) {
     return handleError(err);

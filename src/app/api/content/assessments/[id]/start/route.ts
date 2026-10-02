@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { assessmentDeadline } from '@/lib/assessmentTiming';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { guard } from '@/lib/auth';
@@ -18,29 +19,59 @@ export async function POST(
     const a = await studentAssessment(params.id, p);
 
     const existing = await prisma.attempt.findUnique({
-      where: { assessmentId_studentId: { assessmentId: a.id, studentId: auth.id } },
+      where: {
+        assessmentId_studentId: { assessmentId: a.id, studentId: auth.id },
+      },
       include: { answers: true },
     });
     if (existing && existing.status !== 'IN_PROGRESS') {
-      return fail('You have already submitted this assessment', 409, 'ALREADY_SUBMITTED');
+      return fail(
+        'You have already submitted this assessment',
+        409,
+        'ALREADY_SUBMITTED',
+      );
     }
 
+    const now = new Date();
+    if (!existing && a.scheduledFor && now < a.scheduledFor)
+      return fail('This assessment has not opened yet.', 409, 'NOT_OPEN');
+    if (!existing && a.dueAt && now >= a.dueAt)
+      return fail('This assessment is closed.', 409, 'DEADLINE_PASSED');
     const attempt =
       existing ??
-      (await prisma.attempt.create({
-        data: { assessmentId: a.id, studentId: auth.id, maxScore: a.totalMarks },
+      (await prisma.attempt.upsert({
+        where: {
+          assessmentId_studentId: { assessmentId: a.id, studentId: auth.id },
+        },
+        update: {},
+        create: {
+          assessmentId: a.id,
+          studentId: auth.id,
+          maxScore: a.totalMarks,
+          startedAt: now,
+          deadlineAt: assessmentDeadline(now, a.timeLimitSec, a.dueAt),
+        },
         include: { answers: true },
       }));
+    if (attempt.status !== 'IN_PROGRESS')
+      return fail('Already submitted.', 409, 'ALREADY_SUBMITTED');
 
     const savedAnswers = Object.fromEntries(
       attempt.answers.map((ans) => [
         ans.questionId,
-        { selectedOptionIds: ans.selectedOptionIds, textAnswer: ans.textAnswer, numericAnswer: ans.numericAnswer },
+        {
+          selectedOptionIds: ans.selectedOptionIds,
+          textAnswer: ans.textAnswer,
+          numericAnswer: ans.numericAnswer,
+        },
       ]),
     );
 
     return ok({
       attemptId: attempt.id,
+      revision: attempt.answerRevision,
+      serverNow: new Date().toISOString(),
+      deadlineAt: attempt.deadlineAt,
       assessment: {
         id: a.id,
         type: a.type,

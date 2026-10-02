@@ -30,7 +30,10 @@ export async function GET(req: NextRequest) {
         subject: { select: { id: true, name: true } },
         chapter: { select: { id: true, name: true } },
         _count: { select: { questions: true } },
-        attempts: { where: { studentId: auth.id }, select: { id: true, status: true, score: true, maxScore: true } },
+        attempts: {
+          where: { studentId: auth.id },
+          select: { id: true, status: true, score: true, maxScore: true },
+        },
       },
     });
 
@@ -44,6 +47,8 @@ export async function GET(req: NextRequest) {
       questionCount: a._count.questions,
       totalMarks: a.totalMarks,
       timeLimitSec: a.timeLimitSec,
+      scheduledFor: a.scheduledFor,
+      dueAt: a.dueAt,
       resultsPublished: a.resultsPublished,
       myAttempt: a.attempts[0] ?? null,
     }));

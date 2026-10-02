@@ -18,6 +18,14 @@ export async function GET(
     await getEligibleGroup(params.id, p);
     await requireMembership(params.id, auth.id);
 
+    const before = req.nextUrl.searchParams.get('before');
+    if (
+      before &&
+      !(await prisma.groupPost.findFirst({
+        where: { id: before, groupId: params.id },
+      }))
+    )
+      return ok({ posts: [], nextCursor: null });
     const [group, members, posts] = await Promise.all([
       prisma.studyGroup.findUnique({
         where: { id: params.id },
@@ -34,8 +42,9 @@ export async function GET(
       }),
       prisma.groupPost.findMany({
         where: { groupId: params.id },
-        orderBy: { createdAt: 'asc' },
-        take: 200,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 51,
+        ...(before ? { cursor: { id: before }, skip: 1 } : {}),
         select: {
           id: true,
           body: true,
@@ -48,7 +57,12 @@ export async function GET(
       }),
     ]);
 
-    return ok({ group, members, posts });
+    return ok({
+      group,
+      members,
+      posts: posts.slice(0, 50).reverse(),
+      nextCursor: posts.length > 50 ? posts[49].id : null,
+    });
   } catch (err) {
     return handleError(err);
   }

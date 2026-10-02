@@ -16,7 +16,12 @@ export class ApiError extends Error {
   code?: string;
   status: number;
   details?: unknown;
-  constructor(message: string, status: number, code?: string, details?: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    details?: unknown,
+  ) {
     super(message);
     this.status = status;
     this.code = code;
@@ -24,7 +29,13 @@ export class ApiError extends Error {
   }
 }
 
-const AUTH_PATHS = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh'];
+let refreshInFlight: Promise<Response> | null = null;
+
+const AUTH_PATHS = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+];
 
 async function raw(path: string, init?: RequestInit): Promise<Response> {
   return fetch(path, {
@@ -45,7 +56,13 @@ export async function apiFetch<T = unknown>(
 
   if (res.status === 401 && !AUTH_PATHS.includes(path)) {
     // Try a one-shot refresh, then retry the original request.
-    const refresh = await raw('/api/auth/refresh', { method: 'POST' });
+    if (!refreshInFlight)
+      refreshInFlight = raw('/api/auth/refresh', { method: 'POST' }).finally(
+        () => {
+          refreshInFlight = null;
+        },
+      );
+    const refresh = await refreshInFlight;
     if (refresh.ok) {
       res = await raw(path, init);
     }
@@ -72,8 +89,14 @@ export async function apiFetch<T = unknown>(
 export const api = {
   get: <T>(p: string) => apiFetch<T>(p),
   post: <T>(p: string, data?: unknown) =>
-    apiFetch<T>(p, { method: 'POST', body: data ? JSON.stringify(data) : undefined }),
+    apiFetch<T>(p, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
   patch: <T>(p: string, data?: unknown) =>
-    apiFetch<T>(p, { method: 'PATCH', body: data ? JSON.stringify(data) : undefined }),
+    apiFetch<T>(p, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
   del: <T>(p: string) => apiFetch<T>(p, { method: 'DELETE' }),
 };

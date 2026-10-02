@@ -45,6 +45,7 @@ model User {
   posts          GroupPost[]
   uploadedMaterials StudyMaterial[] @relation("MaterialUploader")
   chapterViews   ChapterView[]
+  studyDays      StudyDay[]
   attempts       Attempt[]
   groupResources GroupResource[]
   groupCardSets  GroupCardSet[]
@@ -488,6 +489,8 @@ model Attempt {
   score        Float?
   maxScore     Float?
   startedAt    DateTime      @default(now())
+  deadlineAt   DateTime?
+  answerRevision Int         @default(0)
   submittedAt  DateTime?
   gradedAt     DateTime?
 
@@ -545,4 +548,20 @@ model Notification {
 
   @@index([userId, read])
   @@index([userId, groupId, read])
+}
+
+// One record per student and UTC day, including repeat visits to a chapter.
+model StudyDay {
+  id     String @id @default(cuid())
+  userId String
+  day    String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, day])
+}
+
+model RateLimitBucket {
+  id        String   @id
+  count     Int      @default(1)
+  expiresAt DateTime
+  @@index([expiresAt])
 }

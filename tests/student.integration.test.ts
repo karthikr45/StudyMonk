@@ -1,0 +1,376 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { NextRequest } from 'next/server';
+
+// Use a disposable database only. This suite creates and removes its own fixtures.
+test(
+  'student API: saved answers, deadlines, activity, pagination, notifications and quiz integrity',
+  { skip: !process.env.STUDYMONK_TEST_DATABASE_URL },
+  async (t) => {
+    const url = new URL(process.env.STUDYMONK_TEST_DATABASE_URL!);
+    assert.ok(
+      ['127.0.0.1', 'localhost'].includes(url.hostname),
+      'Integration tests require a local disposable database',
+    );
+    process.env.DATABASE_URL = url.toString();
+    process.env.JWT_ACCESS_SECRET =
+      'test-only-access-secret-at-least-32-characters';
+    process.env.JWT_REFRESH_SECRET =
+      'test-only-refresh-secret-at-least-32-characters';
+    process.env.API_GATEWAY_KEY = 'test-only-gateway-key';
+    Object.assign(process.env, {
+      R2_ACCOUNT_ID: 'test',
+      R2_ACCESS_KEY_ID: 'test',
+      R2_SECRET_ACCESS_KEY: 'test',
+      R2_BUCKET_NAME: 'test',
+      R2_ENDPOINT: 'https://example.invalid',
+      AI_PROVIDER: 'none',
+    });
+    const { prisma } = await import('../src/lib/prisma');
+    const { writeAttempt } = await import('../src/lib/attemptWrites');
+    const { signAccessToken } = await import('../src/lib/jwt');
+    const prefix = `test-${Date.now()}`;
+    const board = await prisma.board.create({
+      data: { name: prefix, code: prefix },
+    });
+    const klass = await prisma.class.create({
+      data: { boardId: board.id, name: 'Class 10', level: 10 },
+    });
+    const subject = await prisma.subject.create({
+      data: { classId: klass.id, name: 'Math', code: 'math' },
+    });
+    const chapter = await prisma.chapter.create({
+      data: { subjectId: subject.id, name: 'Numbers' },
+    });
+    const user = await prisma.user.create({
+      data: {
+        email: `${prefix}@example.test`,
+        fullName: 'Test Student',
+        passwordHash: 'unused',
+        role: 'STUDENT',
+        boardId: board.id,
+        classId: klass.id,
+        schoolName: 'test',
+        academicYear: '2026-2027',
+      },
+    });
+    const question = await prisma.question.create({
+      data: {
+        subjectId: subject.id,
+        type: 'NUMERIC',
+        prompt: '2+2',
+        numericAnswer: 4,
+        marks: 2,
+      },
+    });
+    const assessment = await prisma.assessment.create({
+      data: {
+        subjectId: subject.id,
+        title: 'Math test',
+        type: 'QUIZ',
+        status: 'PUBLISHED',
+        totalMarks: 2,
+        timeLimitSec: 600,
+        questions: { create: { questionId: question.id, marks: 2 } },
+      },
+    });
+    const token = await signAccessToken({
+      sub: user.id,
+      role: 'STUDENT',
+      email: user.email,
+    });
+    const request = (path: string, body?: unknown) =>
+      new NextRequest(`http://localhost${path}`, {
+        method: body === undefined ? 'GET' : 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'x-api-key': process.env.API_GATEWAY_KEY!,
+          'Content-Type': 'application/json',
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    let groupId = '';
+    try {
+      const { POST: start } =
+        await import('../src/app/api/content/assessments/[id]/start/route');
+      const startBody = await (
+        await start(request('/start', {}), { params: { id: assessment.id } })
+      ).json();
+      const attemptId = startBody.data.attemptId;
+      await t.test(
+        'refresh rotation permits only one replacement session',
+        async () => {
+          const { issueSession, rotateSession } =
+            await import('../src/lib/session');
+          const { hashRefreshToken } = await import('../src/lib/jwt');
+          const input = { userId: user.id, email: user.email, role: user.role };
+          const original = await issueSession(input);
+          const session = await prisma.session.findUniqueOrThrow({
+            where: {
+              refreshTokenHash: hashRefreshToken(original.refreshToken),
+            },
+          });
+          const results = await Promise.allSettled([
+            rotateSession(session.id, input),
+            rotateSession(session.id, input),
+          ]);
+          assert.equal(
+            results.filter((r) => r.status === 'fulfilled').length,
+            1,
+          );
+          assert.equal(
+            await prisma.session.count({
+              where: { userId: user.id, revokedAt: null },
+            }),
+            1,
+          );
+        },
+      );
+      await t.test(
+        'manual grading rejects work that is still in progress',
+        async () => {
+          const { gradeAttempt } = await import('../src/lib/manualGrading');
+          await assert.rejects(
+            gradeAttempt(attemptId, {
+              answers: [{ answerId: 'invalid', awardedMarks: 1 }],
+            }),
+            /Submit the attempt/,
+          );
+        },
+      );
+      await t.test(
+        'resource registration rejects another upload namespace before contacting storage',
+        async () => {
+          const { verifyUploadedObject } = await import('../src/lib/r2');
+          await assert.rejects(
+            verifyUploadedObject(
+              'groups/other/file.pdf',
+              `groups/local/${user.id}`,
+              10,
+              'application/pdf',
+            ),
+            /does not belong/,
+          );
+        },
+      );
+      await t.test(
+        'shared rate limiter blocks requests beyond the limit',
+        async () => {
+          const { consumeRateLimit } = await import('../src/lib/rateLimit');
+          await consumeRateLimit(prefix, 'fixture', 1);
+          await assert.rejects(
+            consumeRateLimit(prefix, 'fixture', 1),
+            /Too many requests/,
+          );
+        },
+      );
+      await t.test('resume retains deadline and revision', async () => {
+        const resumed = await (
+          await start(request('/start', {}), { params: { id: assessment.id } })
+        ).json();
+        assert.equal(resumed.data.attemptId, attemptId);
+        assert.equal(resumed.data.deadlineAt, startBody.data.deadlineAt);
+        assert.equal(resumed.data.revision, 0);
+      });
+      await t.test(
+        'only one concurrent revision succeeds; another user cannot write',
+        async () => {
+          const payload = {
+            revision: 0,
+            answers: [{ questionId: question.id, numericAnswer: 4 }],
+          };
+          const saves = await Promise.allSettled([
+            writeAttempt(attemptId, user.id, payload, false),
+            writeAttempt(attemptId, user.id, payload, false),
+          ]);
+          assert.equal(saves.filter((r) => r.status === 'fulfilled').length, 1);
+          const failed = saves.find(
+            (r) => r.status === 'rejected',
+          ) as PromiseRejectedResult;
+          assert.equal(failed.reason.code, 'REVISION_CONFLICT');
+          await assert.rejects(
+            writeAttempt(attemptId, 'another-user', payload, false),
+            (e: any) => e.code === 'NOT_FOUND',
+          );
+        },
+      );
+      await t.test(
+        'late writes fail and expiry submission grades server-saved answers only',
+        async () => {
+          await prisma.attempt.update({
+            where: { id: attemptId },
+            data: { deadlineAt: new Date(Date.now() - 1000) },
+          });
+          const late = {
+            revision: 1,
+            answers: [{ questionId: question.id, numericAnswer: 9 }],
+          };
+          await assert.rejects(
+            writeAttempt(attemptId, user.id, late, false),
+            (e: any) => e.code === 'DEADLINE_PASSED',
+          );
+          const result = await writeAttempt(attemptId, user.id, late, true);
+          assert.equal(result.deadlinePassed, true);
+          assert.equal(
+            (
+              await prisma.attempt.findUniqueOrThrow({
+                where: { id: attemptId },
+              })
+            ).score,
+            2,
+          );
+          assert.equal(
+            (await writeAttempt(attemptId, user.id, late, true)).submitted,
+            true,
+          );
+          await assert.rejects(
+            writeAttempt(attemptId, user.id, late, false),
+            (e: any) => e.code === 'NOT_IN_PROGRESS',
+          );
+        },
+      );
+      await t.test(
+        'released numeric results include the expected answer',
+        async () => {
+          const { GET } =
+            await import('../src/app/api/content/attempts/[id]/result/route');
+          const body = await (
+            await GET(request('/result'), { params: { id: attemptId } })
+          ).json();
+          assert.equal(body.data.questions[0].numericAnswer, 4);
+        },
+      );
+      await t.test(
+        'opening a chapter records one daily activity despite repeated calls',
+        async () => {
+          const { POST } =
+            await import('../src/app/api/content/chapters/[id]/activity/route');
+          for (let i = 0; i < 2; i++)
+            assert.equal(
+              (
+                await POST(request('/activity', {}), {
+                  params: { id: chapter.id },
+                })
+              ).status,
+              200,
+            );
+          assert.equal(
+            await prisma.studyDay.count({ where: { userId: user.id } }),
+            1,
+          );
+          assert.equal(
+            await prisma.chapterView.count({ where: { userId: user.id } }),
+            1,
+          );
+        },
+      );
+      const group = await prisma.studyGroup.create({
+        data: {
+          name: 'Test group',
+          boardId: board.id,
+          classId: klass.id,
+          schoolName: 'test',
+          academicYear: '2026-2027',
+          createdById: user.id,
+          members: { create: { userId: user.id, role: 'OWNER' } },
+        },
+      });
+      groupId = group.id;
+      await t.test(
+        'latest messages survive beyond 200 posts and older pages do not overlap',
+        async () => {
+          await prisma.groupPost.createMany({
+            data: Array.from({ length: 205 }, (_, i) => ({
+              id: `${prefix}-post-${String(i).padStart(3, '0')}`,
+              groupId,
+              authorId: user.id,
+              body: `Message ${i}`,
+              mentionIds: [],
+              createdAt: new Date(1700000000000 + i * 1000),
+            })),
+          });
+          const { GET } = await import('../src/app/api/groups/[id]/route');
+          const first = await (
+            await GET(request('/group'), { params: { id: groupId } })
+          ).json();
+          assert.equal(first.data.posts.length, 50);
+          assert.equal(first.data.posts.at(-1).body, 'Message 204');
+          const second = await (
+            await GET(request(`/group?before=${first.data.nextCursor}`), {
+              params: { id: groupId },
+            })
+          ).json();
+          assert.equal(second.data.posts.at(-1).body, 'Message 154');
+          assert.equal(
+            new Set(
+              [...first.data.posts, ...second.data.posts].map((p: any) => p.id),
+            ).size,
+            100,
+          );
+        },
+      );
+      await t.test(
+        'reading a notification does not clear unrelated notifications',
+        async () => {
+          const note = await prisma.notification.create({
+            data: { userId: user.id, actorName: 'Peer', type: 'FILE' },
+          });
+          await prisma.notification.create({
+            data: { userId: user.id, actorName: 'Peer', type: 'CARD' },
+          });
+          const { POST } = await import('../src/app/api/notifications/route');
+          assert.equal(
+            (await POST(request('/notifications', { id: note.id }))).status,
+            200,
+          );
+          assert.equal(
+            await prisma.notification.count({
+              where: { userId: user.id, read: false },
+            }),
+            1,
+          );
+        },
+      );
+      await t.test(
+        'quiz answers cannot change after revealing the solution',
+        async () => {
+          const poll = await prisma.groupPoll.create({
+            data: {
+              groupId,
+              createdById: user.id,
+              type: 'QUIZ',
+              question: 'Choose',
+              options: {
+                create: [{ text: 'A', isCorrect: true }, { text: 'B' }],
+              },
+            },
+            include: { options: true },
+          });
+          const { POST } =
+            await import('../src/app/api/groups/[id]/polls/[pid]/vote/route');
+          assert.equal(
+            (
+              await POST(request('/vote', { optionId: poll.options[0].id }), {
+                params: { id: groupId, pid: poll.id },
+              })
+            ).status,
+            200,
+          );
+          assert.equal(
+            (
+              await POST(request('/vote', { optionId: poll.options[1].id }), {
+                params: { id: groupId, pid: poll.id },
+              })
+            ).status,
+            409,
+          );
+        },
+      );
+    } finally {
+      if (groupId) await prisma.studyGroup.delete({ where: { id: groupId } });
+      await prisma.user.delete({ where: { id: user.id } });
+      await prisma.board.delete({ where: { id: board.id } });
+      await prisma.$disconnect();
+    }
+  },
+);
