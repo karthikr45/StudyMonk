@@ -22,10 +22,10 @@ export default function Header({
           <div className="flex min-w-0 items-center gap-3">
             <BrandMark
               size={40}
-              className="shadow-lift transition-transform duration-200 hover:scale-105"
+              className="header-logo"
             />
             <div className="min-w-0">
-              <p className="font-display text-base font-bold leading-tight text-slate-900">
+              <p className="truncate font-display text-base font-bold leading-tight text-slate-900">
                 Study<span className="text-brand-600">Monk</span>
               </p>
               {subtitle && (

@@ -557,3 +557,6 @@ kbd { border: 1px solid #e0ddeb; border-radius: 5px; padding: 2px 5px; font-size
 .chat-bubble button:hover { color: #403166; text-decoration: underline; }
 @media (min-width: 1024px) { .auth-layout { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 60px; } }
 @media (prefers-reduced-motion: reduce) { .auth-art { animation: none; } }
+@media (max-width: 639px) {
+  .header-logo { width: 64px !important; height: auto !important; }
+}
