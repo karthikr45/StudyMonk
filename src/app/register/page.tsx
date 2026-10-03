@@ -39,6 +39,9 @@ export default function RegisterPage() {
   );
   const [boards, setBoards] = useState<Board[]>([]);
   const [classes, setClasses] = useState<Klass[]>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [classesError, setClassesError] = useState('');
+  const [classRetry, setClassRetry] = useState(0);
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -71,15 +74,29 @@ export default function RegisterPage() {
   }, []);
 
   useEffect(() => {
-    if (!form.boardId) {
-      setClasses([]);
-      return;
-    }
+    let current = true;
+    setClasses([]);
+    setClassesError('');
+    setClassesLoading(!!form.boardId);
+    if (!form.boardId) return;
     api
-      .get<{ classes: Klass[] }>(`/api/catalog/classes?boardId=${form.boardId}`)
-      .then((d) => setClasses(d.classes))
-      .catch(() => setClasses([]));
-  }, [form.boardId]);
+      .get<{ classes: Klass[] }>(
+        `/api/catalog/classes?boardId=${encodeURIComponent(form.boardId)}`,
+      )
+      .then((d) => {
+        if (current) setClasses(d.classes);
+      })
+      .catch(() => {
+        if (current)
+          setClassesError('Classes could not be loaded. Please try again.');
+      })
+      .finally(() => {
+        if (current) setClassesLoading(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [form.boardId, classRetry]);
 
   function set<K extends keyof typeof form>(k: K, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -176,21 +193,51 @@ export default function RegisterPage() {
             </select>
           </div>
           <div>
-            <label className="label">Class</label>
+            <label className="label" htmlFor="signup-class">
+              Class
+            </label>
             <select
               className="input"
+              id="signup-class"
               value={form.classId}
               onChange={(e) => set('classId', e.target.value)}
               required
-              disabled={!form.boardId}
+              disabled={!form.boardId || classesLoading || !!classesError}
             >
-              <option value="">Select class</option>
+              <option value="">
+                {!form.boardId
+                  ? 'Choose a board first'
+                  : classesLoading
+                    ? 'Loading classes…'
+                    : 'Select class'}
+              </option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
             </select>
+            {classesError && (
+              <p role="alert" className="mt-2 text-sm text-red-600">
+                {classesError}{' '}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setClassRetry((v) => v + 1)}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
+            {form.boardId &&
+              !classesLoading &&
+              !classesError &&
+              classes.length === 0 && (
+                <p className="mt-2 text-sm text-slate-500">
+                  No classes are available for this board yet. Please contact
+                  your school administrator.
+                </p>
+              )}
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

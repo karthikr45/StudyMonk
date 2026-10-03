@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     const boardId = req.nextUrl.searchParams.get('boardId');
     if (!boardId) return fail('boardId is required', 400, 'BOARD_ID_REQUIRED');
     const classes = await prisma.class.findMany({
-      where: { boardId, isActive: true },
+      where: { boardId, isActive: true, board: { isActive: true } },
       orderBy: { level: 'asc' },
       select: { id: true, name: true, level: true },
     });

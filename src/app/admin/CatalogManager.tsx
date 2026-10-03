@@ -125,8 +125,8 @@ export default function CatalogManager() {
   const [error, setError] = useState<string | null>(null);
 
   const [bName, setBName] = useState('');
-  const [cName, setCName] = useState('');
   const [cLevel, setCLevel] = useState('');
+  const [classesLoading, setClassesLoading] = useState(false);
   const [sName, setSName] = useState('');
   const [chName, setChName] = useState('');
   const [chOrder, setChOrder] = useState('');
@@ -150,17 +150,23 @@ export default function CatalogManager() {
   async function selectBoard(b: Board) {
     const request = ++selection.current;
     setBoard(b);
+    setCLevel('');
     setKlass(null);
     setSubject(null);
     setChapter(null);
     setClasses([]);
+    setClassesLoading(true);
     setSubjects([]);
     setChapters([]);
     setMaterials([]);
-    const d = await api.get<{ classes: Klass[] }>(
-      `/api/admin/classes?boardId=${b.id}`,
-    );
-    if (request === selection.current) setClasses(d.classes);
+    try {
+      const d = await api.get<{ classes: Klass[] }>(
+        `/api/admin/classes?boardId=${b.id}`,
+      );
+      if (request === selection.current) setClasses(d.classes);
+    } finally {
+      if (request === selection.current) setClassesLoading(false);
+    }
   }
   async function selectClass(c: Klass) {
     const request = ++selection.current;
@@ -214,10 +220,9 @@ export default function CatalogManager() {
     try {
       await api.post('/api/admin/classes', {
         boardId: board.id,
-        name: cName,
+        name: `Class ${Number(cLevel)}`,
         level: Number(cLevel),
       });
-      setCName('');
       setCLevel('');
       await selectBoard(board);
     } catch (e) {
@@ -383,24 +388,33 @@ export default function CatalogManager() {
                 onSubmit={(e) => save(e, addClass)}
                 className="mb-4 flex gap-2"
               >
-                <input
+                <select
                   className="input"
-                  aria-label="e.g. Class 10"
-                  placeholder="e.g. Class 10"
-                  value={cName}
-                  onChange={(e) => setCName(e.target.value)}
-                  required
-                />
-                <input
-                  className="input w-20 shrink-0"
-                  type="number"
-                  aria-label="Class level"
-                  placeholder="Lvl"
+                  aria-label="Class to add"
+                  disabled={classesLoading}
                   value={cLevel}
                   onChange={(e) => setCLevel(e.target.value)}
                   required
-                />
-                <button className="btn btn-sm shrink-0" aria-label="Add class">
+                >
+                  <option value="">Choose class to add</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((level) => (
+                    <option
+                      key={level}
+                      value={level}
+                      disabled={classes.some((c) => c.level === level)}
+                    >
+                      Class {level}
+                      {classes.some((c) => c.level === level)
+                        ? ' — already added'
+                        : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn btn-sm shrink-0"
+                  aria-label="Add class"
+                  disabled={classesLoading || !cLevel}
+                >
                   <IconPlus width={15} height={15} />
                 </button>
               </form>

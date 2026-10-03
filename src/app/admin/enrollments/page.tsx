@@ -184,16 +184,42 @@ function Workspace() {
               className="input"
               required
               value={batch.classId}
-              disabled={!batch.boardId}
+              disabled={!batch.boardId || classes.loading || !!classes.error}
               onChange={(e) => setBatch({ ...batch, classId: e.target.value })}
             >
-              <option value="">Choose class</option>
+              <option value="">
+                {!batch.boardId
+                  ? 'Choose board first'
+                  : classes.loading
+                    ? 'Loading classes…'
+                    : 'Choose class'}
+              </option>
               {classes.data?.classes.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
             </select>
+            {batch.boardId && classes.error && (
+              <span role="alert" className="text-red-600">
+                Classes could not be loaded.{' '}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={classes.retry}
+                >
+                  Retry
+                </button>
+              </span>
+            )}
+            {batch.boardId &&
+              !classes.loading &&
+              !classes.error &&
+              classes.data?.classes.length === 0 && (
+                <span>
+                  No classes configured. Add classes in the admin catalog first.
+                </span>
+              )}
           </label>
           <label className="label">
             Academic year
@@ -489,8 +515,46 @@ function Workspace() {
         >
           Confirm historical assignment
         </button>
-        {review.data?.unmappedGroups.length ? <div className="mt-5"><h3 className="font-bold">Unmapped historical groups</h3><p className="my-3 text-sm text-slate-600">Select a destination batch and enter evidence above. Verify every original member before linking. This creates completed historical enrollments where missing and archives the group; it never grants current-year access.</p>{review.data.unmappedGroups.map(g=><div key={g.id} className="flex flex-wrap items-center justify-between gap-3 border-b py-3"><span>{g.name} · {g.schoolName} · {g.academicYear}</span><button className="btn-ghost btn-sm" disabled={busy||!assignmentBatch||evidence.trim().length<10} onClick={()=>run(()=>api.post('/api/admin/group-reconcile',{groupId:g.id,batchId:assignmentBatch,reason:evidence}),'Verified historical group linked and archived.')}>Confirm roster and archive</button></div>)}</div> : null}
-
+        {review.data?.unmappedGroups.length ? (
+          <div className="mt-5">
+            <h3 className="font-bold">Unmapped historical groups</h3>
+            <p className="my-3 text-sm text-slate-600">
+              Select a destination batch and enter evidence above. Verify every
+              original member before linking. This creates completed historical
+              enrollments where missing and archives the group; it never grants
+              current-year access.
+            </p>
+            {review.data.unmappedGroups.map((g) => (
+              <div
+                key={g.id}
+                className="flex flex-wrap items-center justify-between gap-3 border-b py-3"
+              >
+                <span>
+                  {g.name} · {g.schoolName} · {g.academicYear}
+                </span>
+                <button
+                  className="btn-ghost btn-sm"
+                  disabled={
+                    busy || !assignmentBatch || evidence.trim().length < 10
+                  }
+                  onClick={() =>
+                    run(
+                      () =>
+                        api.post('/api/admin/group-reconcile', {
+                          groupId: g.id,
+                          batchId: assignmentBatch,
+                          reason: evidence,
+                        }),
+                      'Verified historical group linked and archived.',
+                    )
+                  }
+                >
+                  Confirm roster and archive
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
       <section className="card">
         <h2 className="text-xl font-bold">Close a finished batch</h2>

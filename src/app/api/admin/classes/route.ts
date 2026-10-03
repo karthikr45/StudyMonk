@@ -28,14 +28,22 @@ export async function POST(req: NextRequest) {
   try {
     await guard(req, { role: 'SUPER_ADMIN' });
     const body = classSchema.parse(await req.json());
-    const board = await prisma.board.findUnique({ where: { id: body.boardId } });
-    if (!board) return fail('Board not found', 422, 'BOARD_NOT_FOUND');
-    const exists = await prisma.class.findFirst({
-      where: { boardId: body.boardId, name: body.name },
+    return await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Board" WHERE id=${body.boardId} FOR UPDATE`;
+      const board = await tx.board.findUnique({ where: { id: body.boardId } });
+      if (!board || !board.isActive)
+        return fail('Board not found', 422, 'BOARD_NOT_FOUND');
+      const exists = await tx.class.findFirst({
+        where: {
+          boardId: body.boardId,
+          OR: [{ name: body.name }, { level: body.level }],
+        },
+      });
+      if (exists)
+        return fail('Class already exists for this board', 409, 'DUPLICATE');
+      const klass = await tx.class.create({ data: body });
+      return ok({ class: klass }, 201);
     });
-    if (exists) return fail('Class already exists for this board', 409, 'DUPLICATE');
-    const klass = await prisma.class.create({ data: body });
-    return ok({ class: klass }, 201);
   } catch (err) {
     return handleError(err);
   }
