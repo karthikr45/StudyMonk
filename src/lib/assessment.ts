@@ -3,11 +3,16 @@ import { HttpError } from './http';
 import type { StudentProfile } from './student';
 
 /** Load a published assessment the student is allowed to take (own class). */
-export async function studentAssessment(assessmentId: string, p: StudentProfile) {
+export async function studentAssessment(
+  assessmentId: string,
+  p: StudentProfile,
+) {
   const a = await prisma.assessment.findFirst({
     where: {
       id: assessmentId,
       status: 'PUBLISHED',
+      batchId: p.batchId,
+      legacyUnscoped: false,
       subject: { classId: p.classId, isActive: true },
     },
     include: {
@@ -15,11 +20,18 @@ export async function studentAssessment(assessmentId: string, p: StudentProfile)
       chapter: { select: { id: true, name: true } },
       questions: {
         orderBy: { order: 'asc' },
-        include: { question: { include: { options: { orderBy: { order: 'asc' } } } } },
+        include: {
+          question: { include: { options: { orderBy: { order: 'asc' } } } },
+        },
       },
     },
   });
-  if (!a) throw new HttpError('Assessment not available for your class', 403, 'FORBIDDEN');
+  if (!a)
+    throw new HttpError(
+      'Assessment not available for your class',
+      403,
+      'FORBIDDEN',
+    );
   return a;
 }
 
@@ -39,9 +51,10 @@ export function shapeQuestionForStudent(item: {
     type: q.type,
     prompt: q.prompt,
     marks: item.marks,
-    options: q.type === 'MCQ' || q.type === 'TRUE_FALSE'
-      ? q.options.map((o) => ({ id: o.id, text: o.text }))
-      : [],
+    options:
+      q.type === 'MCQ' || q.type === 'TRUE_FALSE'
+        ? q.options.map((o) => ({ id: o.id, text: o.text }))
+        : [],
   };
 }
 

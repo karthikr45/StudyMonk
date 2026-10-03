@@ -9,6 +9,11 @@ export interface MeUser {
   fullName: string;
   role: 'SUPER_ADMIN' | 'STUDENT';
   academicYear: string | null;
+  enrollments: {
+    id: string;
+    status: string;
+    batch: { label: string; archivedAt: string | null };
+  }[];
   schoolDisplay: string | null;
   board: { id: string; name: string; code: string } | null;
   class: { id: string; name: string; level: number } | null;

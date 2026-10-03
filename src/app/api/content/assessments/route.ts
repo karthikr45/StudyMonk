@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
     const assessments = await prisma.assessment.findMany({
       where: {
         status: 'PUBLISHED',
+        batchId: p.batchId,
+        legacyUnscoped: false,
         subject: { classId: p.classId, isActive: true },
         ...(type ? { type: type as any } : {}),
         ...(subjectId ? { subjectId } : {}),

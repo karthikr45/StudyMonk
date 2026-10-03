@@ -20,6 +20,13 @@ export async function POST(
     if (!chapter) return fail('Chapter unavailable', 404);
     const day = new Date().toISOString().slice(0, 10);
     await prisma.$transaction([
+      prisma.enrollmentActivity.upsert({
+        where: {
+          enrollmentId_day: { enrollmentId: profile.enrollmentId, day },
+        },
+        update: {},
+        create: { enrollmentId: profile.enrollmentId, day },
+      }),
       prisma.chapterView.upsert({
         where: { userId_chapterId: { userId: user.id, chapterId: chapter.id } },
         update: {},

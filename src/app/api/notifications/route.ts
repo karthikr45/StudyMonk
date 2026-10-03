@@ -10,13 +10,27 @@ import { ok, handleError } from '@/lib/http';
 export async function GET(req: NextRequest) {
   try {
     const auth = await guard(req);
+    const memberships = await prisma.groupMember.findMany({
+      where: {
+        userId: auth.id,
+        enrollment: { status: 'ACTIVE', batch: { archivedAt: null } },
+      },
+      select: { groupId: true },
+    });
+    const visible = {
+      userId: auth.id,
+      OR: [
+        { groupId: null },
+        { groupId: { in: memberships.map((m) => m.groupId) } },
+      ],
+    };
     const [notifications, unread] = await Promise.all([
       prisma.notification.findMany({
-        where: { userId: auth.id },
+        where: visible,
         orderBy: { createdAt: 'desc' },
         take: 30,
       }),
-      prisma.notification.count({ where: { userId: auth.id, read: false } }),
+      prisma.notification.count({ where: { ...visible, read: false } }),
     ]);
     return ok({ notifications, unread });
   } catch (err) {

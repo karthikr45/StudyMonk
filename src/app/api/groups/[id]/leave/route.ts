@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireGroupMember } from '@/lib/groups';
 import { guard } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/http';
 
@@ -12,12 +13,13 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   try {
-    const auth = await guard(req, { role: 'STUDENT' });
+    const { auth } = await requireGroupMember(req, params.id);
 
     const member = await prisma.groupMember.findUnique({
       where: { groupId_userId: { groupId: params.id, userId: auth.id } },
     });
-    if (!member) return fail('You are not a member of this group', 403, 'NOT_MEMBER');
+    if (!member)
+      return fail('You are not a member of this group', 403, 'NOT_MEMBER');
 
     await prisma.$transaction(async (tx) => {
       await tx.groupMember.delete({

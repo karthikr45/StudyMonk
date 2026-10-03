@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     const groups = await prisma.studyGroup.findMany({
       where: {
         isActive: true,
+        batchId: p.batchId,
         boardId: p.boardId,
         classId: p.classId,
         academicYear: p.academicYear,
@@ -26,7 +27,10 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
       include: {
         createdBy: { select: { id: true, fullName: true } },
-        members: { where: { userId: auth.id }, select: { id: true, role: true } },
+        members: {
+          where: { userId: auth.id, enrollmentId: p.enrollmentId },
+          select: { id: true, role: true },
+        },
         _count: { select: { members: true } },
       },
     });
@@ -41,7 +45,10 @@ export async function GET(req: NextRequest) {
       myRole: g.members[0]?.role ?? null,
       createdAt: g.createdAt,
     }));
-    return ok({ groups: shaped, scope: { schoolDisplay: p.schoolDisplay, academicYear: p.academicYear } });
+    return ok({
+      groups: shaped,
+      scope: { schoolDisplay: p.schoolDisplay, academicYear: p.academicYear },
+    });
   } catch (err) {
     return handleError(err);
   }
@@ -57,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     const group = await prisma.studyGroup.create({
       data: {
+        batchId: p.batchId,
         name: body.name,
         description: body.description,
         boardId: p.boardId,
@@ -64,7 +72,13 @@ export async function POST(req: NextRequest) {
         academicYear: p.academicYear,
         schoolName: p.schoolName,
         createdById: auth.id,
-        members: { create: { userId: auth.id, role: 'OWNER' } },
+        members: {
+          create: {
+            userId: auth.id,
+            enrollmentId: p.enrollmentId,
+            role: 'OWNER',
+          },
+        },
       },
     });
     return ok({ group }, 201);

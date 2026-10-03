@@ -41,6 +41,7 @@ model User {
   board   Board? @relation(fields: [boardId], references: [id])
   class   Class? @relation(fields: [classId], references: [id])
 
+  enrollments    Enrollment[]
   sessions       Session[]
   groupMemberships GroupMember[]
   createdGroups  StudyGroup[]   @relation("GroupCreator")
@@ -79,6 +80,7 @@ model Session {
 // ---------------------------------------------------------------------------
 
 model Board {
+  batches Batch[]
   id        String   @id @default(cuid())
   name      String   @unique // e.g. "CBSE"
   code      String   @unique // e.g. "cbse"
@@ -92,6 +94,7 @@ model Board {
 }
 
 model Class {
+  batches Batch[]
   id        String   @id @default(cuid())
   boardId   String
   name      String // e.g. "Class 10"
@@ -199,6 +202,8 @@ enum GroupMemberRole {
 }
 
 model StudyGroup {
+  batchId      String?
+  batch        Batch? @relation(fields: [batchId], references: [id], onDelete: Restrict)
   id           String   @id @default(cuid())
   name         String
   description  String?
@@ -225,6 +230,8 @@ model StudyGroup {
 }
 
 model GroupMember {
+  enrollmentId String?
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
   id       String          @id @default(cuid())
   groupId  String
   userId   String
@@ -432,6 +439,9 @@ enum AssessmentType {
 }
 
 model Assessment {
+  batchId      String?
+  batch        Batch? @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  legacyUnscoped Boolean @default(false)
   id           String         @id @default(cuid())
   type         AssessmentType
   subjectId    String
@@ -484,6 +494,8 @@ enum GradedBy {
 }
 
 model Attempt {
+  enrollmentId String?
+  enrollment   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
   id           String        @id @default(cuid())
   assessmentId String
   studentId    String
@@ -496,8 +508,8 @@ model Attempt {
   submittedAt  DateTime?
   gradedAt     DateTime?
 
-  assessment Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  student    User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assessment Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  student    User            @relation(fields: [studentId], references: [id], onDelete: Restrict)
   answers    AttemptAnswer[]
 
   @@unique([assessmentId, studentId])
@@ -518,7 +530,7 @@ model AttemptAnswer {
   feedback          String?
 
   attempt  Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
 
   @@unique([attemptId, questionId])
   @@index([questionId])
@@ -576,4 +588,65 @@ model School {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   users          User[]
+  batches        Batch[]
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  TRANSFERRED
+  GRADUATED
+  WITHDRAWN
+  REJECTED
+}
+model Batch {
+  id String @id @default(cuid())
+  schoolId String
+  school School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  boardId String
+  board Board @relation(fields: [boardId], references: [id], onDelete: Restrict)
+  classId String
+  class Class @relation(fields: [classId], references: [id], onDelete: Restrict)
+  academicYear String
+  section String @default("")
+  label String
+  archivedAt DateTime?
+  createdAt DateTime @default(now())
+  enrollments Enrollment[]
+  groups StudyGroup[]
+  assessments Assessment[]
+  @@unique([schoolId, boardId, classId, academicYear, section])
+}
+model Enrollment {
+  id String @id @default(cuid())
+  studentId String
+  student User @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  batchId String
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  status EnrollmentStatus @default(PENDING)
+  startedAt DateTime @default(now())
+  endedAt DateTime?
+  approvedById String?
+  attempts Attempt[]
+  memberships GroupMember[]
+  activities EnrollmentActivity[]
+  @@index([studentId, status])
+  @@index([batchId, status])
+}
+model EnrollmentAudit {
+  id String @id @default(cuid())
+  actorId String
+  studentId String?
+  action String
+  details Json
+  createdAt DateTime @default(now())
+}
+
+model EnrollmentActivity {
+  id String @id @default(cuid())
+  enrollmentId String
+  enrollment Enrollment @relation(fields:[enrollmentId],references:[id],onDelete:Cascade)
+  day String
+  @@unique([enrollmentId,day])
 }

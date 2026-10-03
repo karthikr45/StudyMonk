@@ -5,6 +5,7 @@ import { limitAuthRequest, consumeRateLimit } from '@/lib/rateLimit';
 import { prisma } from '@/lib/prisma';
 import { ok, fail, handleError } from '@/lib/http';
 import { registerSchema } from '@/lib/validation';
+import { ensureBatch } from '@/lib/enrollments';
 import { hashPassword } from '@/lib/password';
 import { issueSession, setRefreshCookie, setAccessCookie } from '@/lib/session';
 
@@ -42,19 +43,29 @@ export async function POST(req: NextRequest) {
     });
     if (existing) return fail('Email already registered', 409, 'EMAIL_TAKEN');
 
-    const user = await prisma.user.create({
-      data: {
-        email: body.email.toLowerCase(),
-        passwordHash: await hashPassword(body.password),
-        fullName: body.fullName,
-        role: 'STUDENT',
+    const user = await prisma.$transaction(async (tx) => {
+      const batch = await ensureBatch(tx, {
+        schoolId: school.id,
         boardId: board.id,
         classId: klass.id,
         academicYear: body.academicYear,
-        schoolId: school.id,
-        schoolName: school.normalizedName,
-        schoolDisplay: school.name,
-      },
+        section: '',
+      });
+      return tx.user.create({
+        data: {
+          email: body.email.toLowerCase(),
+          passwordHash: await hashPassword(body.password),
+          fullName: body.fullName,
+          role: 'STUDENT',
+          enrollments: { create: { batchId: batch.id, status: 'PENDING' } },
+          boardId: board.id,
+          classId: klass.id,
+          academicYear: body.academicYear,
+          schoolId: school.id,
+          schoolName: school.normalizedName,
+          schoolDisplay: school.name,
+        },
+      });
     });
 
     const { accessToken, refreshToken } = await issueSession({

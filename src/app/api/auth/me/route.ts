@@ -17,6 +17,14 @@ export async function GET(req: NextRequest) {
         fullName: true,
         role: true,
         academicYear: true,
+        enrollments: {
+          where: { status: { in: ['ACTIVE', 'PENDING'] } },
+          select: {
+            id: true,
+            status: true,
+            batch: { select: { label: true, archivedAt: true } },
+          },
+        },
         schoolDisplay: true,
         board: { select: { id: true, name: true, code: true } },
         class: { select: { id: true, name: true, level: true } },

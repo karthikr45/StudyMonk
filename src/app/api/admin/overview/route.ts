@@ -13,12 +13,26 @@ export async function GET(_req: NextRequest) {
   try {
     await guard(_req, { role: 'SUPER_ADMIN' });
 
-    const [assessments, needsReviewGroups, totalQuestions, draftQuestions, totalAttempts] = await Promise.all([
+    const [
+      assessments,
+      needsReviewGroups,
+      totalQuestions,
+      draftQuestions,
+      totalAttempts,
+    ] = await Promise.all([
       prisma.assessment.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
+          batch: { select: { label: true } },
           chapter: { select: { name: true } },
-          subject: { select: { name: true, class: { select: { name: true, board: { select: { name: true } } } } } },
+          subject: {
+            select: {
+              name: true,
+              class: {
+                select: { name: true, board: { select: { name: true } } },
+              },
+            },
+          },
           _count: { select: { questions: true, attempts: true } },
         },
       }),
@@ -30,14 +44,18 @@ export async function GET(_req: NextRequest) {
       }),
       prisma.question.count(),
       prisma.question.count({ where: { status: 'DRAFT' } }),
-      prisma.attempt.count({ where: { status: { in: ['SUBMITTED', 'GRADED', 'NEEDS_REVIEW'] } } }),
+      prisma.attempt.count({
+        where: { status: { in: ['SUBMITTED', 'GRADED', 'NEEDS_REVIEW'] } },
+      }),
     ]);
 
-    const reviewByAssessment = new Map(needsReviewGroups.map((g) => [g.assessmentId, g._count._all]));
+    const reviewByAssessment = new Map(
+      needsReviewGroups.map((g) => [g.assessmentId, g._count._all]),
+    );
 
     const rows = assessments.map((a) => ({
       id: a.id,
-      title: a.title,
+      title: `${a.title} — ${a.batch?.label ?? (a.legacyUnscoped ? 'Legacy: needs batch review' : 'Template: not assigned')}`,
       type: a.type,
       status: a.status,
       resultsPublished: a.resultsPublished,

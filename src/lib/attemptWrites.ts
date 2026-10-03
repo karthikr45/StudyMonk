@@ -12,6 +12,7 @@ export async function writeAttempt(
   userId: string,
   body: z.infer<typeof submitAnswersSchema>,
   submit: boolean,
+  adminFinalize = false,
 ) {
   return prisma.$transaction(
     async (tx) => {
@@ -32,7 +33,26 @@ export async function writeAttempt(
           'NOT_IN_PROGRESS',
         );
       }
-      const expired = hasExpired(attempt.deadlineAt);
+      if (
+        !adminFinalize &&
+        !(
+          attempt.enrollmentId &&
+          (await tx.enrollment.findFirst({
+            where: {
+              id: attempt.enrollmentId,
+              studentId: userId,
+              status: 'ACTIVE',
+              batch: { archivedAt: null },
+            },
+          }))
+        )
+      )
+        throw new HttpError(
+          'This enrollment is no longer active',
+          403,
+          'ENROLLMENT_CLOSED',
+        );
+      const expired = adminFinalize || hasExpired(attempt.deadlineAt);
       if (expired && !submit)
         throw new HttpError(
           'Time is up. Submit your saved answers.',

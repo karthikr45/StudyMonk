@@ -14,13 +14,38 @@ export async function GET(req: NextRequest) {
     const p = await studentProfile(auth.id);
 
     const attempts = await prisma.attempt.findMany({
-      where: { status: 'GRADED', score: { not: null }, student: { classId: p.classId, isActive: true } },
-      select: { studentId: true, score: true, maxScore: true, student: { select: { fullName: true } } },
+      where: {
+        enrollment: { batchId: p.batchId },
+        status: 'GRADED',
+        score: { not: null },
+        student: { classId: p.classId, isActive: true },
+      },
+      select: {
+        studentId: true,
+        score: true,
+        maxScore: true,
+        student: { select: { fullName: true } },
+      },
     });
 
-    const map = new Map<string, { name: string; points: number; earned: number; possible: number; attempts: number }>();
+    const map = new Map<
+      string,
+      {
+        name: string;
+        points: number;
+        earned: number;
+        possible: number;
+        attempts: number;
+      }
+    >();
     for (const a of attempts) {
-      const cur = map.get(a.studentId) ?? { name: a.student.fullName, points: 0, earned: 0, possible: 0, attempts: 0 };
+      const cur = map.get(a.studentId) ?? {
+        name: a.student.fullName,
+        points: 0,
+        earned: 0,
+        possible: 0,
+        attempts: 0,
+      };
       cur.points += a.score ?? 0;
       cur.earned += a.score ?? 0;
       cur.possible += a.maxScore ?? 0;
@@ -42,8 +67,16 @@ export async function GET(req: NextRequest) {
     const me = ranked.find((r) => r.id === auth.id) ?? null;
 
     return ok({
-      leaderboard: ranked.slice(0, 15).map((r) => ({ rank: r.rank, name: r.name, points: r.points, avgPercent: r.avgPercent, isMe: r.id === auth.id })),
-      me: me ? { rank: me.rank, points: me.points, avgPercent: me.avgPercent } : null,
+      leaderboard: ranked.slice(0, 15).map((r) => ({
+        rank: r.rank,
+        name: r.name,
+        points: r.points,
+        avgPercent: r.avgPercent,
+        isMe: r.id === auth.id,
+      })),
+      me: me
+        ? { rank: me.rank, points: me.points, avgPercent: me.avgPercent }
+        : null,
       totalRanked: ranked.length,
     });
   } catch (err) {

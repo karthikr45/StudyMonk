@@ -25,6 +25,7 @@ export async function POST(
     const target = await prisma.user.findFirst({
       where: {
         id: userId,
+        enrollments: { some: { batchId: p.batchId, status: 'ACTIVE' } },
         role: 'STUDENT',
         isActive: true,
         boardId: group.boardId,
@@ -32,16 +33,31 @@ export async function POST(
         academicYear: group.academicYear,
         schoolName: group.schoolName,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        enrollments: {
+          where: { batchId: p.batchId, status: 'ACTIVE' },
+          select: { id: true },
+        },
+      },
     });
     if (!target) {
-      return fail('That student is not eligible for this group', 422, 'NOT_ELIGIBLE');
+      return fail(
+        'That student is not eligible for this group',
+        422,
+        'NOT_ELIGIBLE',
+      );
     }
 
     const member = await prisma.groupMember.upsert({
       where: { groupId_userId: { groupId: params.id, userId } },
-      update: {},
-      create: { groupId: params.id, userId, role: 'MEMBER' },
+      update: { enrollmentId: target.enrollments[0].id },
+      create: {
+        groupId: params.id,
+        userId,
+        enrollmentId: target.enrollments[0].id,
+        role: 'MEMBER',
+      },
     });
     return ok({ member }, 201);
   } catch (err) {

@@ -27,6 +27,7 @@ export async function GET(
 
     const students = await prisma.user.findMany({
       where: {
+        enrollments: { some: { batchId: p.batchId, status: 'ACTIVE' } },
         role: 'STUDENT',
         isActive: true,
         boardId: group.boardId,

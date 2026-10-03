@@ -11,6 +11,7 @@ export async function getEligibleGroup(groupId: string, p: StudentProfile) {
   });
   if (!group) throw new HttpError('Group not found', 404, 'GROUP_NOT_FOUND');
   const matches =
+    group.batchId === p.batchId &&
     group.boardId === p.boardId &&
     group.classId === p.classId &&
     group.academicYear === p.academicYear &&
@@ -29,7 +30,13 @@ export async function requireMembership(groupId: string, userId: string) {
   const member = await prisma.groupMember.findUnique({
     where: { groupId_userId: { groupId, userId } },
   });
-  if (!member) throw new HttpError('You are not a member of this group', 403, 'NOT_MEMBER');
+  const p = await studentProfile(userId);
+  if (!member || member.enrollmentId !== p.enrollmentId)
+    throw new HttpError(
+      'You are not a member of this group for your current enrollment',
+      403,
+      'NOT_MEMBER',
+    );
   return member;
 }
 
@@ -59,10 +66,27 @@ export async function notifyGroupMembers(opts: {
   try {
     const [members, actor] = await Promise.all([
       prisma.groupMember.findMany({
-        where: { groupId: opts.groupId, userId: { not: opts.actorId } },
+        where: {
+          groupId: opts.groupId,
+          userId: { not: opts.actorId },
+          user: {
+            enrollments: {
+              some: {
+                status: 'ACTIVE',
+                batch: {
+                  archivedAt: null,
+                  groups: { some: { id: opts.groupId } },
+                },
+              },
+            },
+          },
+        },
         select: { userId: true },
       }),
-      prisma.user.findUnique({ where: { id: opts.actorId }, select: { fullName: true } }),
+      prisma.user.findUnique({
+        where: { id: opts.actorId },
+        select: { fullName: true },
+      }),
     ]);
     if (members.length === 0) return;
     await prisma.notification.createMany({

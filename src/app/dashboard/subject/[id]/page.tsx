@@ -48,6 +48,7 @@ function fmtSize(bytes: number) {
 
 export default function SubjectPage() {
   const { user, loading } = useMe();
+  const learningKey = `${user?.id}-${user?.enrollments?.find((e) => e.status === 'ACTIVE')?.id ?? 'none'}`;
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const {
@@ -70,19 +71,19 @@ export default function SubjectPage() {
     if (!user || !subject) return;
     try {
       localStorage.setItem(
-        `sm-recent-${user.id}`,
+        `sm-recent-${learningKey}`,
         JSON.stringify({ id: subject.id, name: subject.name }),
       );
       setCompleted(
-        JSON.parse(localStorage.getItem(`sm-complete-${user.id}`) || '[]'),
+        JSON.parse(localStorage.getItem(`sm-complete-${learningKey}`) || '[]'),
       );
       setBookmarked(
-        JSON.parse(localStorage.getItem(`sm-bookmarks-${user.id}`) || '[]'),
+        JSON.parse(localStorage.getItem(`sm-bookmarks-${learningKey}`) || '[]'),
       );
     } catch {
       /* Optional device preferences. */
     }
-  }, [user, subject]);
+  }, [user, subject, learningKey]);
   function togglePreference(kind: 'complete' | 'bookmarks', id: string) {
     const values = kind === 'complete' ? completed : bookmarked;
     const next = values.includes(id)
@@ -91,7 +92,7 @@ export default function SubjectPage() {
     if (kind === 'complete') setCompleted(next);
     else setBookmarked(next);
     try {
-      localStorage.setItem(`sm-${kind}-${user?.id}`, JSON.stringify(next));
+      localStorage.setItem(`sm-${kind}-${learningKey}`, JSON.stringify(next));
     } catch {
       setError('Your browser could not save this preference.');
     }

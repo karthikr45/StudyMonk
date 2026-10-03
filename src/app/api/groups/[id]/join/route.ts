@@ -17,10 +17,24 @@ export async function POST(
     const p = await studentProfile(auth.id);
     await getEligibleGroup(params.id, p); // enforces scope match
 
+    const existing = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: params.id, userId: auth.id } },
+    });
+    if (existing?.enrollmentId === p.enrollmentId)
+      return ok({ member: existing });
     const member = await prisma.groupMember.upsert({
       where: { groupId_userId: { groupId: params.id, userId: auth.id } },
-      update: {},
-      create: { groupId: params.id, userId: auth.id, role: 'MEMBER' },
+      update: {
+        enrollmentId: p.enrollmentId,
+        role: 'MEMBER',
+        joinedAt: new Date(),
+      },
+      create: {
+        groupId: params.id,
+        userId: auth.id,
+        enrollmentId: p.enrollmentId,
+        role: 'MEMBER',
+      },
     });
     return ok({ member }, 201);
   } catch (err) {

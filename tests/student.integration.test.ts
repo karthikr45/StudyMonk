@@ -54,6 +54,21 @@ test(
         academicYear: '2026-2027',
       },
     });
+    const school = await prisma.school.create({
+      data: { name: prefix, normalizedName: prefix },
+    });
+    const batch = await prisma.batch.create({
+      data: {
+        schoolId: school.id,
+        boardId: board.id,
+        classId: klass.id,
+        academicYear: '2026-2027',
+        label: prefix,
+      },
+    });
+    const enrollment = await prisma.enrollment.create({
+      data: { studentId: user.id, batchId: batch.id, status: 'ACTIVE' },
+    });
     const question = await prisma.question.create({
       data: {
         subjectId: subject.id,
@@ -67,6 +82,7 @@ test(
       data: {
         subjectId: subject.id,
         title: 'Math test',
+        batchId: batch.id,
         type: 'QUIZ',
         status: 'PUBLISHED',
         totalMarks: 2,
@@ -264,6 +280,13 @@ test(
             assert.equal(registered.schoolDisplay, school.name);
             assert.equal(registered.schoolName, school.name.toLowerCase());
           } finally {
+            await prisma.enrollment.deleteMany({
+              where: {
+                student: { email: `${prefix}-registered@example.test` },
+              },
+            });
+            if (schoolId)
+              await prisma.batch.deleteMany({ where: { schoolId } });
             await prisma.user.deleteMany({
               where: { email: `${prefix}-registered@example.test` },
             });
@@ -379,12 +402,19 @@ test(
       const group = await prisma.studyGroup.create({
         data: {
           name: 'Test group',
+          batchId: batch.id,
           boardId: board.id,
           classId: klass.id,
-          schoolName: 'test',
+          schoolName: school.normalizedName,
           academicYear: '2026-2027',
           createdById: user.id,
-          members: { create: { userId: user.id, role: 'OWNER' } },
+          members: {
+            create: {
+              userId: user.id,
+              enrollmentId: enrollment.id,
+              role: 'OWNER',
+            },
+          },
         },
       });
       groupId = group.id;
@@ -478,8 +508,232 @@ test(
           );
         },
       );
+      await t.test(
+        'batch lifecycle isolates years, sections, approvals, promotion and transfers',
+        async () => {
+          const { studentProfile } = await import('../src/lib/student');
+          const { transitionEnrollment } =
+            await import('../src/lib/enrollments');
+          const { getEligibleGroup } = await import('../src/lib/groups');
+          const { studentAssessment } = await import('../src/lib/assessment');
+          const { GET: history } =
+            await import('../src/app/api/content/history/route');
+          const { GET: archive } =
+            await import('../src/app/api/content/history/groups/[id]/route');
+          await prisma.enrollment.update({
+            where: { id: enrollment.id },
+            data: { status: 'PENDING' },
+          });
+          await assert.rejects(studentProfile(user.id), /approval/);
+          const approval = {
+            studentId: user.id,
+            enrollmentId: enrollment.id,
+            action: 'APPROVE' as const,
+            reason: 'Verified school roster',
+          };
+          const results = await Promise.allSettled([
+            transitionEnrollment(user.id, approval),
+            transitionEnrollment(user.id, approval),
+          ]);
+          assert.equal(
+            results.filter((r) => r.status === 'fulfilled').length,
+            1,
+          );
+          const other = await prisma.batch.create({
+            data: {
+              schoolId: school.id,
+              boardId: board.id,
+              classId: klass.id,
+              academicYear: '2026-2027',
+              section: 'B',
+              label: 'Other section',
+            },
+          });
+          const wrong = await prisma.assessment.create({
+            data: {
+              batchId: other.id,
+              subjectId: subject.id,
+              title: 'Other batch',
+              type: 'QUIZ',
+              status: 'PUBLISHED',
+            },
+          });
+          await assert.rejects(
+            studentAssessment(wrong.id, await studentProfile(user.id)),
+            /not available/,
+          );
+          const nextClass = await prisma.class.create({
+            data: { boardId: board.id, name: 'Class 11', level: 11 },
+          });
+          const next = await prisma.batch.create({
+            data: {
+              schoolId: school.id,
+              boardId: board.id,
+              classId: nextClass.id,
+              academicYear: '2027-2028',
+              label: 'Next year',
+            },
+          });
+          await assert.rejects(
+            transitionEnrollment(user.id, {
+              studentId: user.id,
+              enrollmentId: enrollment.id,
+              action: 'PROMOTE',
+              targetBatchId: other.id,
+              reason: 'Invalid same-year promotion',
+            }),
+            /next academic year/,
+          );
+          const unfinishedAssessment = await prisma.assessment.create({
+            data: {
+              batchId: batch.id,
+              subjectId: subject.id,
+              title: 'Unfinished work',
+              type: 'QUIZ',
+              status: 'PUBLISHED',
+              totalMarks: 2,
+              questions: { create: { questionId: question.id, marks: 2 } },
+            },
+          });
+          const unfinished = await prisma.attempt.create({
+            data: {
+              assessmentId: unfinishedAssessment.id,
+              studentId: user.id,
+              enrollmentId: enrollment.id,
+              status: 'IN_PROGRESS',
+              maxScore: 2,
+            },
+          });
+          await assert.rejects(
+            transitionEnrollment(user.id, {
+              studentId: user.id,
+              enrollmentId: enrollment.id,
+              action: 'PROMOTE',
+              targetBatchId: next.id,
+              reason: 'Try before finishing',
+            }),
+            /Finalize open attempts/,
+          );
+          await writeAttempt(
+            unfinished.id,
+            user.id,
+            {
+              revision: 0,
+              answers: [{ questionId: question.id, numericAnswer: 4 }],
+            },
+            true,
+            true,
+          );
+          assert.equal(
+            (
+              await prisma.attempt.findUniqueOrThrow({
+                where: { id: unfinished.id },
+              })
+            ).score,
+            0,
+            'admin finalization must not accept new answers',
+          );
+          const future = await transitionEnrollment(user.id, {
+            studentId: user.id,
+            enrollmentId: enrollment.id,
+            action: 'PROMOTE',
+            targetBatchId: next.id,
+            reason: 'School confirmed promotion',
+          });
+          assert.equal((await studentProfile(user.id)).batchId, next.id);
+          await assert.rejects(
+            getEligibleGroup(groupId, await studentProfile(user.id)),
+            /not for your/,
+          );
+          assert.equal(
+            (await archive(request('/archive'), { params: { id: groupId } }))
+              .status,
+            200,
+          );
+          assert.ok(
+            (
+              await (await history(request('/history'))).json()
+            ).data.attempts.some((a: { id: string }) => a.id === attemptId),
+          );
+          const transferSchool = await prisma.school.create({
+            data: {
+              name: `${prefix} destination`,
+              normalizedName: `${prefix} destination`,
+            },
+          });
+          const newSection = await prisma.batch.create({
+            data: {
+              schoolId: transferSchool.id,
+              boardId: board.id,
+              classId: nextClass.id,
+              academicYear: '2027-2028',
+              section: 'B',
+              label: 'Transfer destination',
+            },
+          });
+          const oldGroup = await prisma.studyGroup.create({
+            data: {
+              batchId: next.id,
+              name: 'Prior transfer group',
+              boardId: board.id,
+              classId: nextClass.id,
+              schoolName: prefix,
+              academicYear: '2027-2028',
+              createdById: user.id,
+              members: {
+                create: {
+                  userId: user.id,
+                  enrollmentId: future!.id,
+                  role: 'OWNER',
+                },
+              },
+            },
+          });
+          try {
+            const transferred = await transitionEnrollment(user.id, {
+              studentId: user.id,
+              enrollmentId: future!.id,
+              action: 'TRANSFER',
+              targetBatchId: newSection.id,
+              reason: 'Verified section transfer',
+            });
+            assert.equal(
+              (
+                await archive(request('/archive'), {
+                  params: { id: oldGroup.id },
+                })
+              ).status,
+              403,
+            );
+            await transitionEnrollment(user.id, {
+              studentId: user.id,
+              enrollmentId: transferred!.id,
+              action: 'GRADUATE',
+              reason: 'School confirmed completion',
+            });
+            await assert.rejects(studentProfile(user.id), /approval/);
+            assert.equal(
+              await prisma.enrollment.count({
+                where: { studentId: user.id, status: 'ACTIVE' },
+              }),
+              0,
+            );
+          } finally {
+            await prisma.studyGroup.delete({ where: { id: oldGroup.id } });
+          }
+        },
+      );
     } finally {
       if (groupId) await prisma.studyGroup.delete({ where: { id: groupId } });
+      await prisma.attempt.deleteMany({ where: { studentId: user.id } });
+      await prisma.enrollment.deleteMany({ where: { studentId: user.id } });
+      await prisma.assessment.deleteMany({
+        where: { subject: { class: { boardId: board.id } } },
+      });
+      await prisma.batch.deleteMany({ where: { boardId: board.id } });
+      await prisma.school.deleteMany({
+        where: { normalizedName: { startsWith: prefix } },
+      });
       await prisma.user.delete({ where: { id: user.id } });
       await prisma.board.delete({ where: { id: board.id } });
       await prisma.$disconnect();

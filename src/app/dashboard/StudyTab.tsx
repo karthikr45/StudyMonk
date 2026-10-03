@@ -41,7 +41,9 @@ export default function StudyTab({ user }: { user: MeUser }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-        <NextSteps userId={user.id} />
+        <NextSteps
+          userId={`${user.id}-${user.enrollments.find((e) => e.status === 'ACTIVE')?.id ?? 'none'}`}
+        />
         <FocusTimer key={user.id} userId={user.id} />
       </div>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">

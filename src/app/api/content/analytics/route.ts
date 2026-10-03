@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { studentProfile } from '@/lib/student';
 import { guard } from '@/lib/auth';
 import { ok, handleError } from '@/lib/http';
 
@@ -13,11 +14,13 @@ function dayKey(d: Date): string {
 export async function GET(req: NextRequest) {
   try {
     const auth = await guard(req, { role: 'STUDENT' });
+    const p = await studentProfile(auth.id);
 
     // Graded attempts with scores.
     const attempts = await prisma.attempt.findMany({
       where: {
         studentId: auth.id,
+        enrollmentId: p.enrollmentId,
         status: 'GRADED',
         score: { not: null },
         maxScore: { gt: 0 },
@@ -83,12 +86,16 @@ export async function GET(req: NextRequest) {
       : 0;
 
     const [studyDays, submitted] = await Promise.all([
-      prisma.studyDay.findMany({
-        where: { userId: auth.id },
+      prisma.enrollmentActivity.findMany({
+        where: { enrollmentId: p.enrollmentId },
         select: { day: true },
       }),
       prisma.attempt.findMany({
-        where: { studentId: auth.id, submittedAt: { not: null } },
+        where: {
+          studentId: auth.id,
+          enrollmentId: p.enrollmentId,
+          submittedAt: { not: null },
+        },
         select: { submittedAt: true },
       }),
     ]);
@@ -111,12 +118,17 @@ export async function GET(req: NextRequest) {
     });
     const available = profile?.classId
       ? await prisma.assessment.count({
-          where: { status: 'PUBLISHED', subject: { classId: profile.classId } },
+          where: {
+            batchId: p.batchId,
+            status: 'PUBLISHED',
+            subject: { classId: profile.classId },
+          },
         })
       : 0;
     const taken = await prisma.attempt.count({
       where: {
         studentId: auth.id,
+        enrollmentId: p.enrollmentId,
         status: { in: ['GRADED', 'NEEDS_REVIEW', 'SUBMITTED'] },
       },
     });

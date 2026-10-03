@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMe } from '@/lib/client/useAuth';
@@ -48,6 +49,36 @@ function DashboardContent() {
     );
   }
 
+  if (
+    !user.enrollments?.some((e) => e.status === 'ACTIVE' && !e.batch.archivedAt)
+  )
+    return (
+      <>
+        <Header user={user} subtitle="Enrollment" />
+        <main className="mx-auto max-w-2xl px-4 py-12">
+          <section className="card">
+            <h1 className="text-2xl font-bold">
+              Your next chapter starts here.
+            </h1>
+            <p className="my-4 text-slate-600">
+              Your school enrollment needs admin approval, or your previous
+              enrollment has ended. Contact your school admin to confirm your
+              batch. Your submitted work stays in learning history.
+            </p>
+            <Link className="btn" href="/dashboard/history">
+              My learning history →
+            </Link>
+            <button
+              className="btn-ghost ml-3"
+              onClick={() => window.location.reload()}
+            >
+              Check approval
+            </button>
+          </section>
+        </main>
+      </>
+    );
+
   const subtitle =
     user.board && user.class
       ? `${user.board.name} · ${user.class.name} · ${user.academicYear}`
@@ -65,6 +96,12 @@ function DashboardContent() {
       <Header user={user} subtitle={subtitle} />
       <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 animate-fade-in">
         <div className="dashboard-greeting">
+          <Link
+            className="float-right text-sm font-semibold text-brand-600"
+            href="/dashboard/history"
+          >
+            Learning history ↗
+          </Link>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">
             {tab === 'groups'
               ? 'Better together.'
