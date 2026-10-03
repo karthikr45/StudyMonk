@@ -6,7 +6,9 @@ import { logout, MeUser } from '@/lib/client/useAuth';
 import { IconLogout } from './icons';
 
 const ADMIN_LINKS = [
-  { href: '/admin', label: 'Content catalog' },
+  { href: '/admin', label: 'Overview & catalog' },
+  { href: '/admin/enrollments', label: 'Batches & enrollments' },
+  { href: '/admin/schools', label: 'Schools' },
   { href: '/admin/assessments', label: 'Assessments' },
   { href: '/admin/groups', label: 'Study groups' },
   { href: '/admin/analytics', label: 'Analytics' },
@@ -30,7 +32,7 @@ export default function UserMenu({ user }: { user: MeUser }) {
         setOpen(false);
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && open) {
         setOpen(false);
         buttonRef.current?.focus();
       }
@@ -41,7 +43,7 @@ export default function UserMenu({ user }: { user: MeUser }) {
       document.removeEventListener('mousedown', onClick);
       document.removeEventListener('keydown', onKey);
     };
-  }, []);
+  }, [open]);
 
   return (
     <div className="relative" ref={ref}>

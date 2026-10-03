@@ -6,8 +6,7 @@ import { guard } from '@/lib/auth';
 import { ok, handleError } from '@/lib/http';
 import { studentProfile } from '@/lib/student';
 
-// Subjects for the logged-in student's own class. "students using it" = active
-// students enrolled in this board+class (they all have access to the subject).
+// Shared curriculum, with participation counts limited to the current batch.
 export async function GET(req: NextRequest) {
   try {
     const auth = await guard(req, { role: 'STUDENT' });
@@ -17,10 +16,19 @@ export async function GET(req: NextRequest) {
       prisma.subject.findMany({
         where: { classId: profile.classId, isActive: true },
         orderBy: { name: 'asc' },
-        select: { id: true, name: true, code: true, _count: { select: { chapters: true } } },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          _count: { select: { chapters: true } },
+        },
       }),
-      prisma.user.count({
-        where: { role: 'STUDENT', isActive: true, boardId: profile.boardId, classId: profile.classId },
+      prisma.enrollment.count({
+        where: {
+          status: 'ACTIVE',
+          batchId: profile.batchId,
+          student: { isActive: true },
+        },
       }),
     ]);
 

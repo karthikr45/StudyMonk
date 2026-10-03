@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMe } from '@/lib/client/useAuth';
 import { useRemote } from '@/lib/client/useRemote';
+import WorkspaceSkeleton from '@/components/WorkspaceSkeleton';
 import LoadError from '@/components/LoadError';
 import Header from '@/components/Header';
 import CatalogManager from './CatalogManager';
@@ -11,6 +12,7 @@ interface Overview {
   totals: {
     assessments: number;
     published: number;
+    pendingEnrollments: number;
     drafts: number;
     questions: number;
     draftQuestions: number;
@@ -31,18 +33,31 @@ function AdminSummary() {
     '/api/admin/overview',
   );
   if (error) return <LoadError message={error} retry={retry} />;
-  if (loading || !data)
-    return (
-      <div className="card" role="status">
-        Bringing your workspace up to date…
-      </div>
-    );
+  if (loading || !data) return <WorkspaceSkeleton />;
   const t = data.totals;
   const queue = data.assessments
     .filter((a) => a.needsReview > 0)
     .sort((a, b) => b.needsReview - a.needsReview);
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 panel-enter">
+      <Link href="/admin/enrollments" className="approval-banner">
+        <span className="approval-icon" aria-hidden="true">
+          ↗
+        </span>
+        <span className="min-w-0 flex-1">
+          <strong className="block">
+            {t.pendingEnrollments
+              ? `${t.pendingEnrollments} student${t.pendingEnrollments === 1 ? '' : 's'} ready for their next chapter`
+              : 'Keep every student in the right batch'}
+          </strong>
+          <span className="mt-1 block text-sm">
+            Review enrollments, plan promotions and manage transfers.
+          </span>
+        </span>
+        <span className="shrink-0 font-semibold">
+          Open <span aria-hidden="true">→</span>
+        </span>
+      </Link>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           [
@@ -175,7 +190,7 @@ export default function AdminPage() {
     <div className="min-h-screen">
       <Header user={user} subtitle="Admin studio" />
       <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6">
-        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+        <div className="admin-welcome mb-7 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="eyebrow text-brand-600">THE BIG PICTURE</p>
             <h1 className="mt-2 text-3xl sm:text-4xl font-bold">

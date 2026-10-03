@@ -72,7 +72,7 @@ export default function NotificationBell() {
         setOpen(false);
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && open) {
         setOpen(false);
         buttonRef.current?.focus();
       }
@@ -83,7 +83,7 @@ export default function NotificationBell() {
       document.removeEventListener('mousedown', onClick);
       document.removeEventListener('keydown', onKey);
     };
-  }, []);
+  }, [open]);
 
   function toggle() {
     setOpen((value) => !value);

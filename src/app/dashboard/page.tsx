@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import WorkspaceSkeleton from '@/components/WorkspaceSkeleton';
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMe } from '@/lib/client/useAuth';
@@ -13,7 +14,13 @@ import { IconBook, IconUsers, IconFile, IconShield } from '@/components/icons';
 
 export default function Dashboard() {
   return (
-    <Suspense fallback={<p className="p-6">Loading dashboard…</p>}>
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-7xl p-6">
+          <WorkspaceSkeleton />
+        </div>
+      }
+    >
       <DashboardContent />
     </Suspense>
   );
@@ -43,8 +50,8 @@ function DashboardContent() {
 
   if (loading || !user) {
     return (
-      <main className="grid min-h-screen place-items-center text-sm text-slate-500">
-        Loading…
+      <main className="mx-auto max-w-7xl p-6">
+        <WorkspaceSkeleton />
       </main>
     );
   }
@@ -96,12 +103,10 @@ function DashboardContent() {
       <Header user={user} subtitle={subtitle} />
       <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 animate-fade-in">
         <div className="dashboard-greeting">
-          <Link
-            className="float-right text-sm font-semibold text-brand-600"
-            href="/dashboard/history"
-          >
+          <Link className="history-link" href="/dashboard/history">
             Learning history ↗
           </Link>
+          <p className="eyebrow mb-3 text-brand-600">YOUR SPACE TO GROW</p>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">
             {tab === 'groups'
               ? 'Better together.'
@@ -165,6 +170,8 @@ function DashboardContent() {
         </div>
 
         <section
+          key={tab}
+          className="panel-enter"
           id="dashboard-panel"
           role="tabpanel"
           aria-labelledby={`tab-${tab}`}

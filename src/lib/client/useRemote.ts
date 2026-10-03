@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
 /** Distinguish unavailable data from a genuine empty response. */
-export function useRemote<T>(url: string) {
+export function useRemote<T>(url: string | null) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -10,6 +10,12 @@ export function useRemote<T>(url: string) {
   const retry = useCallback(() => setVersion((v) => v + 1), []);
   useEffect(() => {
     let current = true;
+    if (!url) {
+      setData(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     setData(null);

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRemote } from '@/lib/client/useRemote';
+import WorkspaceSkeleton from '@/components/WorkspaceSkeleton';
 import LoadError from '@/components/LoadError';
 import NextSteps from './NextSteps';
 import FocusTimer from './FocusTimer';
@@ -35,8 +36,7 @@ export default function StudyTab({ user }: { user: MeUser }) {
   const subjects = data?.subjects ?? [];
   const classCount = data?.classStudentCount ?? 0;
   if (error) return <LoadError message={error} retry={retry} />;
-  if (loading)
-    return <p className="text-sm text-slate-500">Loading your subjects…</p>;
+  if (loading) return <WorkspaceSkeleton label="Loading your subjects…" />;
 
   return (
     <div className="space-y-6">
@@ -51,7 +51,7 @@ export default function StudyTab({ user }: { user: MeUser }) {
           {user.board?.name} · {user.class?.name}
         </span>
         <span>{subjects.length} subjects to explore</span>
-        <span>{classCount} enrolled in your board & class</span>
+        <span>{classCount} students in your batch</span>
       </div>
       {/* Subjects */}
       <div>
@@ -97,6 +97,7 @@ export default function StudyTab({ user }: { user: MeUser }) {
                 <Link
                   key={s.id}
                   href={`/dashboard/subject/${s.id}`}
+                  style={{ animationDelay: `${Math.min(i, 5) * 55}ms` }}
                   className={`group subject-tile subject-tone-${i % 4}`}
                 >
                   <div className="flex items-start justify-between">

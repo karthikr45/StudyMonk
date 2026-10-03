@@ -19,6 +19,7 @@ export async function GET(_req: NextRequest) {
       totalQuestions,
       draftQuestions,
       totalAttempts,
+      pendingEnrollments,
     ] = await Promise.all([
       prisma.assessment.findMany({
         orderBy: { createdAt: 'desc' },
@@ -47,6 +48,9 @@ export async function GET(_req: NextRequest) {
       prisma.attempt.count({
         where: { status: { in: ['SUBMITTED', 'GRADED', 'NEEDS_REVIEW'] } },
       }),
+      prisma.enrollment.count({
+        where: { status: 'PENDING', student: { isActive: true } },
+      }),
     ]);
 
     const reviewByAssessment = new Map(
@@ -71,6 +75,7 @@ export async function GET(_req: NextRequest) {
     }));
 
     const totals = {
+      pendingEnrollments,
       assessments: assessments.length,
       published: assessments.filter((a) => a.status === 'PUBLISHED').length,
       drafts: assessments.filter((a) => a.status !== 'PUBLISHED').length,

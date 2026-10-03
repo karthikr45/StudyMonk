@@ -1,4 +1,5 @@
 'use client';
+import WorkspaceSkeleton from '@/components/WorkspaceSkeleton';
 import Link from 'next/link';
 import { useRemote } from '@/lib/client/useRemote';
 import LoadError from '@/components/LoadError';
@@ -57,7 +58,7 @@ export default function ProgressTab() {
     retry,
   } = useRemote<Analytics>('/api/content/analytics');
   const ranking = useRemote<Leaderboard>('/api/content/leaderboard');
-  if (loading) return <p role="status">Loading your progress…</p>;
+  if (loading) return <WorkspaceSkeleton label="Loading your progress…" />;
   if (error || !d)
     return (
       <LoadError message={error ?? 'Progress unavailable.'} retry={retry} />

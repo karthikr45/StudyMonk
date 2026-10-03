@@ -66,7 +66,9 @@ function Workspace() {
     section: '',
   });
   const classes = useRemote<{ classes: { id: string; name: string }[] }>(
-    `/api/catalog/classes?boardId=${encodeURIComponent(batch.boardId)}`,
+    batch.boardId
+      ? `/api/catalog/classes?boardId=${encodeURIComponent(batch.boardId)}`
+      : null,
   );
   const [search, setSearch] = useState('');
   const [studentId, setStudentId] = useState('');

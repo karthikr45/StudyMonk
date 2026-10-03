@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { CSSProperties, useEffect, useState } from 'react';
 export default function FocusTimer({ userId }: { userId: string }) {
   const [ready, setReady] = useState(false);
   const [duration, setDuration] = useState(25 * 60);
@@ -87,14 +87,23 @@ export default function FocusTimer({ userId }: { userId: string }) {
           </button>
         ))}
       </div>
-      <p
-        className="timer-digits"
-        aria-label={`${Math.floor(remaining / 60)} minutes ${remaining % 60} seconds remaining`}
+      <div
+        className={`focus-orbit ${deadline ? 'is-running' : ''} ${finished ? 'is-finished' : ''}`}
+        style={
+          {
+            '--focus-progress': `${((duration - remaining) / duration) * 360}deg`,
+          } as CSSProperties
+        }
       >
-        {String(Math.floor(remaining / 60)).padStart(2, '0')}
-        <span>:</span>
-        {String(remaining % 60).padStart(2, '0')}
-      </p>
+        <p
+          className="timer-digits"
+          aria-label={`${Math.floor(remaining / 60)} minutes ${remaining % 60} seconds remaining`}
+        >
+          {String(Math.floor(remaining / 60)).padStart(2, '0')}
+          <span>:</span>
+          {String(remaining % 60).padStart(2, '0')}
+        </p>
+      </div>
       <p className="my-3 text-sm text-slate-600" role="status">
         {finished
           ? 'Session complete. Take a breath — you earned it.'
@@ -102,6 +111,7 @@ export default function FocusTimer({ userId }: { userId: string }) {
       </p>
       <div className="flex gap-2">
         <button
+          disabled={!ready}
           className="btn flex-1"
           onClick={() => {
             if (deadline) setDeadline(null);

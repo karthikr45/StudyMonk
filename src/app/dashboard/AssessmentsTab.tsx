@@ -1,4 +1,5 @@
 'use client';
+import WorkspaceSkeleton from '@/components/WorkspaceSkeleton';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -67,8 +68,7 @@ export default function AssessmentsTab() {
       : 'View result';
   }
 
-  if (loading)
-    return <p className="text-sm text-slate-500">Loading assessments…</p>;
+  if (loading) return <WorkspaceSkeleton label="Loading assessments…" />;
   if (items.length === 0)
     return (
       <div className="card grid place-items-center py-16 text-center">

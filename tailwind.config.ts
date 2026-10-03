@@ -9,20 +9,20 @@ const config: Config = {
         display: ['var(--font-display)', 'var(--font-body)', 'ui-sans-serif', 'sans-serif'],
       },
       colors: {
-        // StudyMonk brand — teal primary, amber accent, cream paper.
+        // StudyMonk studio palette — iris, mint and warm accents.
         brand: {
-          DEFAULT: '#1f4e5f',
-          dark: '#163b48',
-          light: '#eef4f5',
-          50: '#eef4f5',
-          100: '#d9e7ea',
-          200: '#b3ced4',
-          300: '#84acb5',
-          400: '#52818f',
-          500: '#2f6675',
-          600: '#1f4e5f',
-          700: '#163b48',
-          800: '#0f2b34',
+          DEFAULT: '#5544b5',
+          dark: '#41338c',
+          light: '#f3f0ff',
+          50: '#f3f0ff',
+          100: '#e8e1fc',
+          200: '#d0c4f5',
+          300: '#afa0e9',
+          400: '#8e79db',
+          500: '#715bcc',
+          600: '#5544b5',
+          700: '#41338c',
+          800: '#302562',
         },
         accent: {
           DEFAULT: '#E8A33D',
@@ -39,7 +39,7 @@ const config: Config = {
         glow: '0 0 0 1px rgb(31 78 95 / 0.08), 0 12px 32px -12px rgb(31 78 95 / 0.28)',
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(135deg, #2f6675 0%, #1f4e5f 100%)',
+        'brand-gradient': 'linear-gradient(135deg, #715bcc 0%, #5544b5 100%)',
       },
       keyframes: {
         'fade-in': {
